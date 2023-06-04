@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+option go_package = "github.com/science-engineering-art/spotify/src/kademlia/pb";
+
+package kademlia;
+
+message Response {
+    bool Success = 1;
+}
+
+message Node {
+    bytes ID = 1;
+    string IP = 2;
+    int32 Port = 3;
+}
+
+message Data {
+    int32 Init   = 1;
+    int32 End    = 2;
+    bytes Buffer = 3;
+}
+
+message StoreData{
+    Node Sender = 1;
+    bytes Key = 2;
+    Data Value = 3;
+}
+
+message TargetID {
+    Node Sender = 1;
+    bytes ID = 2;
+}
+
+message KBucket {
+    repeated Node Bucket = 1;
+}
+
+message FindValueResponse {
+    optional KBucket KNeartestBuckets = 1;
+    optional Data Value = 2;
+}
+
+service FullNode {
+    rpc Ping(Node)          returns (Node) {}
+    rpc Store(stream StoreData)  returns (Response) {}
+    rpc FindNode(TargetID)  returns (KBucket) {}
+    rpc FindValue(TargetID) returns (stream FindValueResponse) {}
+}
