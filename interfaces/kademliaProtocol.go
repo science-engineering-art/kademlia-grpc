@@ -1,6 +1,6 @@
 package interfaces
 
-import "github.com/science-engineering-art/spotify/src/kademlia/structs"
+import "github.com/science-engineering-art/kademlia-grpc/structs"
 
 type KademliaProtocol interface {
 	Ping(structs.Node) structs.Node

@@ -13,10 +13,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/science-engineering-art/spotify/src/kademlia/interfaces"
-	"github.com/science-engineering-art/spotify/src/kademlia/pb"
-	"github.com/science-engineering-art/spotify/src/kademlia/structs"
-	"github.com/science-engineering-art/spotify/src/kademlia/utils"
+	"github.com/science-engineering-art/kademlia-grpc/interfaces"
+	"github.com/science-engineering-art/kademlia-grpc/pb"
+	"github.com/science-engineering-art/kademlia-grpc/structs"
+	"github.com/science-engineering-art/kademlia-grpc/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )

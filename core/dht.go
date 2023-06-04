@@ -3,8 +3,8 @@ package core
 import (
 	"bytes"
 
-	"github.com/science-engineering-art/spotify/src/kademlia/interfaces"
-	"github.com/science-engineering-art/spotify/src/kademlia/structs"
+	"github.com/science-engineering-art/kademlia-grpc/interfaces"
+	"github.com/science-engineering-art/kademlia-grpc/structs"
 )
 
 type DHT struct {

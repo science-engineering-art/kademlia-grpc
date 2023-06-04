@@ -6,7 +6,7 @@ import (
 	"encoding/gob"
 	"io"
 
-	"github.com/science-engineering-art/spotify/src/kademlia/structs"
+	"github.com/science-engineering-art/kademlia-grpc/structs"
 )
 
 func SerializeMessage(q *[]structs.Node) (*[]byte, error) {

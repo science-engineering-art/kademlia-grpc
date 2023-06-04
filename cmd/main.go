@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/science-engineering-art/spotify/src/kademlia/core"
-	"github.com/science-engineering-art/spotify/src/kademlia/pb"
-	"github.com/science-engineering-art/spotify/src/kademlia/structs"
+	"github.com/science-engineering-art/kademlia-grpc/core"
+	"github.com/science-engineering-art/kademlia-grpc/pb"
+	"github.com/science-engineering-art/kademlia-grpc/structs"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
