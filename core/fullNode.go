@@ -379,8 +379,7 @@ func (fn *FullNode) joinNetwork(boostrapPort int) {
 	}
 }
 
-func (fn *FullNode) StoreValue(key string, data string) (string, error) {
-	dataBytes := []byte(data)
+func (fn *FullNode) StoreValue(key string, data *[]byte) (string, error) {
 	keyHash, _ := base64.RawStdEncoding.DecodeString(key)
 
 	nearestNeighbors, err := fn.LookUp(keyHash)
@@ -389,7 +388,7 @@ func (fn *FullNode) StoreValue(key string, data string) (string, error) {
 	}
 
 	if len(nearestNeighbors) == 0 {
-		err := fn.dht.Store(keyHash, &dataBytes)
+		err := fn.dht.Store(keyHash, data)
 		if err != nil {
 			return "", nil
 		}
@@ -413,10 +412,11 @@ func (fn *FullNode) StoreValue(key string, data string) (string, error) {
 					Port: int32(fn.dht.Port),
 				},
 				Key: keyHash,
+				// leandro_driguez: tiene sentido pasar todo el archivo?
 				Value: &pb.Data{
 					Init:   0,
-					End:    int32(len(dataBytes)),
-					Buffer: dataBytes,
+					End:    int32(len(*data)),
+					Buffer: *data,
 				},
 			},
 		)
@@ -425,7 +425,7 @@ func (fn *FullNode) StoreValue(key string, data string) (string, error) {
 		}
 	}
 
-	fmt.Println("Stored ID: ", key, "Stored Data:", dataBytes)
+	fmt.Println("Stored ID: ", key, "Stored Data:", data)
 	return key, nil
 }
 

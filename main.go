@@ -61,8 +61,8 @@ func main() {
 				continue
 			}
 			key := input[1]
-			data := input[2]
-			id, err := fullNode.StoreValue(key, data)
+			data := []byte(input[2])
+			id, err := fullNode.StoreValue(key, &data)
 			if err != nil {
 				fmt.Println(err.Error())
 			}
