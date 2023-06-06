@@ -42,14 +42,14 @@ func NewFullNode(nodeIP string, nodePort, bootstrapPort int, storage interfaces.
 	dht := DHT{Node: node, RoutingTable: routingTable, Storage: storage}
 	fullNode := FullNode{dht: &dht}
 
-	go func() {
-		for {
-			<-time.After(10 * time.Second)
-			fmt.Println("\nROUTING TABLE:")
-			fullNode.PrintRoutingTable()
-			fmt.Printf("\n")
-		}
-	}()
+	// go func() {
+	// 	for {
+	// 		<-time.After(10 * time.Second)
+	// 		fmt.Println("\nROUTING TABLE:")
+	// 		fullNode.PrintRoutingTable()
+	// 		fmt.Printf("\n")
+	// 	}
+	// }()
 
 	if isBootstrapNode {
 		go fullNode.bootstrap(bootstrapPort)
@@ -153,7 +153,7 @@ func (fn *FullNode) Store(stream pb.FullNode_StoreServer) error {
 	return nil
 }
 
-func (fn *FullNode) FindNode(ctx context.Context, target *pb.TargetID) (*pb.KBucket, error) {
+func (fn *FullNode) FindNode(ctx context.Context, target *pb.Target) (*pb.KBucket, error) {
 	// add the sender to the Routing Table
 	sender := structs.Node{
 		ID:   target.Sender.ID,
@@ -167,7 +167,7 @@ func (fn *FullNode) FindNode(ctx context.Context, target *pb.TargetID) (*pb.KBuc
 	return getKBucketFromNodeArray(bucket), nil
 }
 
-func (fn *FullNode) FindValue(target *pb.TargetID, fv pb.FullNode_FindValueServer) error {
+func (fn *FullNode) FindValue(target *pb.Target, stream pb.FullNode_FindValueServer) error {
 	// add the sender to the Routing Table
 	sender := structs.Node{
 		ID:   target.Sender.ID,
@@ -177,23 +177,31 @@ func (fn *FullNode) FindValue(target *pb.TargetID, fv pb.FullNode_FindValueServe
 	fn.dht.RoutingTable.AddNode(sender)
 
 	value, neighbors := fn.dht.FindValue(&target.ID)
+	response := pb.FindValueResponse{}
 
-	kbucket := &pb.KBucket{Bucket: []*pb.Node{}}
-	if neighbors != nil && len(*neighbors) > 0 {
-		kbucket = getKBucketFromNodeArray(neighbors)
+	if value == nil && neighbors != nil {
+		response = pb.FindValueResponse{
+			KNeartestBuckets: getKBucketFromNodeArray(neighbors),
+			Value: &pb.Data{
+				Init:   0,
+				End:    0,
+				Buffer: []byte{},
+			},
+		}
+	} else if value != nil && neighbors == nil {
+		response = pb.FindValueResponse{
+			KNeartestBuckets: &pb.KBucket{Bucket: []*pb.Node{}},
+			Value: &pb.Data{
+				Init:   target.Init,
+				End:    target.End,
+				Buffer: (*value)[int(target.Init):int(target.End)],
+			},
+		}
+	} else {
+		return errors.New("check code because this case shouldn't be valid")
 	}
-	if value == nil {
-		value = &[]byte{}
-	}
-	response := pb.FindValueResponse{
-		KNeartestBuckets: kbucket,
-		Value: &pb.Data{
-			Init:   0,
-			End:    int32(len(*value)),
-			Buffer: (*value)[:],
-		},
-	}
-	fv.Send(&response)
+	stream.Send(&response)
+
 	return nil
 }
 
@@ -257,7 +265,7 @@ func (fn *FullNode) LookUp(target []byte) ([]structs.Node, error) {
 			defer cancel()
 
 			recvNodes, err := client.FindNode(ctx,
-				&pb.TargetID{
+				&pb.Target{
 					ID: node.ID,
 					Sender: &pb.Node{
 						ID:   fn.dht.ID,
@@ -505,7 +513,7 @@ func (fn *FullNode) GetValue(target string) ([]byte, error) {
 		defer cancel()
 
 		receiver, err := client.FindValue(ctx,
-			&pb.TargetID{
+			&pb.Target{
 				ID: keyHash,
 				Sender: &pb.Node{
 					ID:   fn.dht.ID,

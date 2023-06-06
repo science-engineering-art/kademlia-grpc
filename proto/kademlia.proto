@@ -9,8 +9,8 @@ message Response {
 }
 
 message Node {
-    bytes ID = 1;
-    string IP = 2;
+    bytes ID   = 1;
+    string IP  = 2;
     int32 Port = 3;
 }
 
@@ -22,13 +22,15 @@ message Data {
 
 message StoreData{
     Node Sender = 1;
-    bytes Key = 2;
-    Data Value = 3;
+    bytes Key   = 2;
+    Data Value  = 3;
 }
 
-message TargetID {
-    Node Sender = 1;
-    bytes ID = 2;
+message Target {
+    bytes ID    = 1;
+    int32 Init  = 2;
+    int32 End   = 3;
+    Node Sender = 4;
 }
 
 message KBucket {
@@ -43,6 +45,6 @@ message FindValueResponse {
 service FullNode {
     rpc Ping(Node)          returns (Node) {}
     rpc Store(stream StoreData)  returns (Response) {}
-    rpc FindNode(TargetID)  returns (KBucket) {}
-    rpc FindValue(TargetID) returns (stream FindValueResponse) {}
+    rpc FindNode(Target)  returns (KBucket) {}
+    rpc FindValue(Target) returns (stream FindValueResponse) {}
 }

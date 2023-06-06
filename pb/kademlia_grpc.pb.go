@@ -24,8 +24,8 @@ const _ = grpc.SupportPackageIsVersion7
 type FullNodeClient interface {
 	Ping(ctx context.Context, in *Node, opts ...grpc.CallOption) (*Node, error)
 	Store(ctx context.Context, opts ...grpc.CallOption) (FullNode_StoreClient, error)
-	FindNode(ctx context.Context, in *TargetID, opts ...grpc.CallOption) (*KBucket, error)
-	FindValue(ctx context.Context, in *TargetID, opts ...grpc.CallOption) (FullNode_FindValueClient, error)
+	FindNode(ctx context.Context, in *Target, opts ...grpc.CallOption) (*KBucket, error)
+	FindValue(ctx context.Context, in *Target, opts ...grpc.CallOption) (FullNode_FindValueClient, error)
 }
 
 type fullNodeClient struct {
@@ -79,7 +79,7 @@ func (x *fullNodeStoreClient) CloseAndRecv() (*Response, error) {
 	return m, nil
 }
 
-func (c *fullNodeClient) FindNode(ctx context.Context, in *TargetID, opts ...grpc.CallOption) (*KBucket, error) {
+func (c *fullNodeClient) FindNode(ctx context.Context, in *Target, opts ...grpc.CallOption) (*KBucket, error) {
 	out := new(KBucket)
 	err := c.cc.Invoke(ctx, "/kademlia.FullNode/FindNode", in, out, opts...)
 	if err != nil {
@@ -88,7 +88,7 @@ func (c *fullNodeClient) FindNode(ctx context.Context, in *TargetID, opts ...grp
 	return out, nil
 }
 
-func (c *fullNodeClient) FindValue(ctx context.Context, in *TargetID, opts ...grpc.CallOption) (FullNode_FindValueClient, error) {
+func (c *fullNodeClient) FindValue(ctx context.Context, in *Target, opts ...grpc.CallOption) (FullNode_FindValueClient, error) {
 	stream, err := c.cc.NewStream(ctx, &FullNode_ServiceDesc.Streams[1], "/kademlia.FullNode/FindValue", opts...)
 	if err != nil {
 		return nil, err
@@ -126,8 +126,8 @@ func (x *fullNodeFindValueClient) Recv() (*FindValueResponse, error) {
 type FullNodeServer interface {
 	Ping(context.Context, *Node) (*Node, error)
 	Store(FullNode_StoreServer) error
-	FindNode(context.Context, *TargetID) (*KBucket, error)
-	FindValue(*TargetID, FullNode_FindValueServer) error
+	FindNode(context.Context, *Target) (*KBucket, error)
+	FindValue(*Target, FullNode_FindValueServer) error
 	mustEmbedUnimplementedFullNodeServer()
 }
 
@@ -141,10 +141,10 @@ func (UnimplementedFullNodeServer) Ping(context.Context, *Node) (*Node, error) {
 func (UnimplementedFullNodeServer) Store(FullNode_StoreServer) error {
 	return status.Errorf(codes.Unimplemented, "method Store not implemented")
 }
-func (UnimplementedFullNodeServer) FindNode(context.Context, *TargetID) (*KBucket, error) {
+func (UnimplementedFullNodeServer) FindNode(context.Context, *Target) (*KBucket, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FindNode not implemented")
 }
-func (UnimplementedFullNodeServer) FindValue(*TargetID, FullNode_FindValueServer) error {
+func (UnimplementedFullNodeServer) FindValue(*Target, FullNode_FindValueServer) error {
 	return status.Errorf(codes.Unimplemented, "method FindValue not implemented")
 }
 func (UnimplementedFullNodeServer) mustEmbedUnimplementedFullNodeServer() {}
@@ -205,7 +205,7 @@ func (x *fullNodeStoreServer) Recv() (*StoreData, error) {
 }
 
 func _FullNode_FindNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(TargetID)
+	in := new(Target)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -217,13 +217,13 @@ func _FullNode_FindNode_Handler(srv interface{}, ctx context.Context, dec func(i
 		FullMethod: "/kademlia.FullNode/FindNode",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(FullNodeServer).FindNode(ctx, req.(*TargetID))
+		return srv.(FullNodeServer).FindNode(ctx, req.(*Target))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _FullNode_FindValue_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(TargetID)
+	m := new(Target)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
