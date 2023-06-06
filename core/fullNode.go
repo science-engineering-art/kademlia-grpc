@@ -40,6 +40,10 @@ func NewFullNode(nodeIP string, nodePort, bootstrapPort int, storage interfaces.
 	dht := DHT{Node: node, RoutingTable: routingTable, Storage: storage}
 	fullNode := FullNode{dht: &dht}
 
+	go func() {
+		fmt.Println(dht.RoutingTable.KBuckets)
+	}()
+
 	if isBootstrapNode {
 		go fullNode.bootstrap(bootstrapPort)
 	} else {
