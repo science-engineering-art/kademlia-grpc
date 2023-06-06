@@ -42,6 +42,7 @@ func NewFullNode(nodeIP string, nodePort, bootstrapPort int, storage interfaces.
 
 	go func() {
 		for {
+			<-time.After(10 * time.Second)
 			fmt.Println("\nROUTING TABLE:")
 			fullNode.PrintRoutingTable()
 			fmt.Printf("\n")
