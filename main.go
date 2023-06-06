@@ -3,17 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
-	"net"
-	"os/exec"
 	"strconv"
 	"strings"
 
 	"github.com/science-engineering-art/kademlia-grpc/core"
-	"github.com/science-engineering-art/kademlia-grpc/pb"
 	"github.com/science-engineering-art/kademlia-grpc/structs"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
+	"github.com/science-engineering-art/kademlia-grpc/utils"
 	"gopkg.in/readline.v1"
 )
 
@@ -37,7 +32,7 @@ func main() {
 		switch input[0] {
 		case "node":
 			if len(input) != 4 {
-				displayHelp()
+				utils.DisplayHelp()
 				continue
 			}
 			port, _ := strconv.Atoi(input[1])
@@ -48,16 +43,16 @@ func main() {
 
 			storage := structs.NewStorage()
 
-			ip := getIpFromHost()
+			ip := utils.GetIpFromHost()
 			grpcServerAddress = ip + ":" + strconv.FormatInt(int64(port), 10)
 			fullNode = *core.NewFullNode(ip, port, bPort, storage, isB)
-			go CreateGRPCServerFromFullNode(fullNode)
+			go core.CreateGRPCServerFromFullNode(fullNode, grpcServerAddress)
 
 			fmt.Println("Node running at:", ip, ":", port)
 
 		case "store":
 			if len(input) != 3 {
-				displayHelp()
+				utils.DisplayHelp()
 				continue
 			}
 			key := input[1]
@@ -69,7 +64,7 @@ func main() {
 			fmt.Println("Stored with ID: ", id)
 		case "get":
 			if len(input) != 2 {
-				displayHelp()
+				utils.DisplayHelp()
 				continue
 			}
 			key := input[1]
@@ -81,45 +76,5 @@ func main() {
 		case "dht":
 			fullNode.PrintRoutingTable()
 		}
-	}
-}
-
-func getIpFromHost() string {
-	cmd := exec.Command("hostname", "-i")
-	var out strings.Builder
-	cmd.Stdout = &out
-	err := cmd.Run()
-	if err != nil {
-		fmt.Println("Error running docker inspect:", err)
-		return ""
-	}
-	ip := strings.TrimSpace(out.String())
-	return ip
-}
-
-func displayHelp() {
-	fmt.Println(`
-help - This message
-store <message> - Store a message on the network
-get <key> - Get a message from the network
-info - Display information about this node
-	`)
-}
-
-func CreateGRPCServerFromFullNode(fullNode core.FullNode) {
-	grpcServer := grpc.NewServer()
-
-	pb.RegisterFullNodeServer(grpcServer, &fullNode)
-	reflection.Register(grpcServer)
-
-	listener, err := net.Listen("tcp", grpcServerAddress)
-	if err != nil {
-		log.Fatal("cannot create grpc server: ", err)
-	}
-
-	log.Printf("start gRPC server on %s", listener.Addr().String())
-	err = grpcServer.Serve(listener)
-	if err != nil {
-		log.Fatal("cannot create grpc server: ", err)
 	}
 }

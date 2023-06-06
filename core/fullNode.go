@@ -17,8 +17,10 @@ import (
 	"github.com/science-engineering-art/kademlia-grpc/pb"
 	"github.com/science-engineering-art/kademlia-grpc/structs"
 	"github.com/science-engineering-art/kademlia-grpc/utils"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/reflection"
 )
 
 const (
@@ -56,6 +58,25 @@ func NewFullNode(nodeIP string, nodePort, bootstrapPort int, storage interfaces.
 	}
 
 	return &fullNode
+}
+
+// Create gRPC Server
+func CreateGRPCServerFromFullNode(fullNode FullNode, grpcServerAddress string) {
+	grpcServer := grpc.NewServer()
+
+	pb.RegisterFullNodeServer(grpcServer, &fullNode)
+	reflection.Register(grpcServer)
+
+	listener, err := net.Listen("tcp", grpcServerAddress)
+	if err != nil {
+		log.Fatal("cannot create grpc server: ", err)
+	}
+
+	log.Printf("start gRPC server on %s", listener.Addr().String())
+	err = grpcServer.Serve(listener)
+	if err != nil {
+		log.Fatal("cannot create grpc server: ", err)
+	}
 }
 
 // newID generates a new random ID
