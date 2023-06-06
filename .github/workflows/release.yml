@@ -6,6 +6,7 @@
    jobs:
      release:
        runs-on: ubuntu-latest
+       environment: production
        steps:
          - name: Checkout
            uses: actions/checkout@master
