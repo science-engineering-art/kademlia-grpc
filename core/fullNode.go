@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/big"
 	"net"
 	"sort"
 	"strconv"
@@ -433,8 +434,8 @@ func (fn *FullNode) StoreValue(key string, data *[]byte) (string, error) {
 	nearestNeighbors, err := fn.LookUp(keyHash)
 	//fmt.Printf("Neartest Neighbors:\n%v\n", nearestNeighbors)
 	if err != nil {
-		fmt.Printf("ERROR LookUP() method\n\n")
-		fmt.Printf("EXIT StoreValue() method\n\n")
+		//fmt.Printf("ERROR LookUP() method\n\n")
+		//fmt.Printf("EXIT StoreValue() method\n\n")
 		return "", err
 	}
 
@@ -449,7 +450,18 @@ func (fn *FullNode) StoreValue(key string, data *[]byte) (string, error) {
 		return key, nil
 	}
 
-	for _, node := range nearestNeighbors {
+	for index, node := range nearestNeighbors {
+		if index == len(nearestNeighbors)-1 && closestNodeToKey(keyHash, fn.dht.ID, node.ID) == -1 {
+			err := fn.dht.Store(keyHash, data)
+			if err != nil {
+				//fmt.Printf("ERROR Store(Me)\n\n")
+				//fmt.Printf("EXIT StoreValue() method\n\n")
+				return "", nil
+			}
+			//fmt.Printf("EXIT StoreValue() method\n\n")
+			return key, nil
+		}
+
 		client := getFullNodeClient(&node.IP, &node.Port)
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
@@ -485,6 +497,16 @@ func (fn *FullNode) StoreValue(key string, data *[]byte) (string, error) {
 	//fmt.Println("Stored ID: ", key, "Stored Data:", data)
 	//fmt.Printf("EXIT StoreValue() method\n\n")
 	return key, nil
+}
+
+func closestNodeToKey(key []byte, id1 []byte, id2 []byte) int {
+	buf1 := new(big.Int).SetBytes(key)
+	buf2 := new(big.Int).SetBytes(id1)
+	buf3 := new(big.Int).SetBytes(id2)
+	result1 := new(big.Int).Xor(buf1, buf2)
+	result2 := new(big.Int).Xor(buf1, buf3)
+
+	return result1.Cmp(result2)
 }
 
 func (fn *FullNode) GetValue(target string) ([]byte, error) {
