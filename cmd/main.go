@@ -110,7 +110,7 @@ func main() {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			pbKBucket, err := client.FindNode(ctx, &pb.TargetID{ID: target})
+			pbKBucket, err := client.FindNode(ctx, &pb.Target{ID: target})
 			if err != nil {
 				fmt.Println(err.Error())
 			}
@@ -135,7 +135,7 @@ func main() {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			receiver, err := client.FindValue(ctx, &pb.TargetID{ID: target})
+			receiver, err := client.FindValue(ctx, &pb.Target{ID: target})
 			if err != nil {
 				fmt.Println(err.Error())
 			}
