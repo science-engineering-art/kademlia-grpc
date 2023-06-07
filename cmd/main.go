@@ -58,7 +58,7 @@ func main() {
 			data := input[3]
 
 			client := GetFullNodeClient(&ip, &port)
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			sender, err := client.Store(ctx)
 			if err != nil {
@@ -87,7 +87,7 @@ func main() {
 			ipReceiver := input[3]
 			portReceiver, _ := strconv.Atoi(input[4])
 			client := GetFullNodeClient(&ipReceiver, &portReceiver)
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			idSender, _ := core.NewID(ipSender, portSender)
 			pbNode, err := client.Ping(ctx, &pb.Node{ID: idSender, IP: ipSender, Port: int32(portSender)})
@@ -107,7 +107,7 @@ func main() {
 			target, _ := base64.RawStdEncoding.DecodeString(data)
 
 			client := GetFullNodeClient(&ip, &port)
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 
 			pbKBucket, err := client.FindNode(ctx, &pb.Target{ID: target})
@@ -132,7 +132,7 @@ func main() {
 			}
 
 			client := GetFullNodeClient(&ip, &port)
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 
 			receiver, err := client.FindValue(ctx, &pb.Target{ID: target})
@@ -203,7 +203,7 @@ func main() {
 
 			//Send ping rpc from bootIp:bootPort for adding it to routing table as entry points
 			client := GetFullNodeClient(&ip, &port)
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			idSender, _ := core.NewID(bootIp, bootPort)
 			pbNode, err := client.Ping(ctx, &pb.Node{ID: idSender, IP: bootIp, Port: int32(bootPort)})

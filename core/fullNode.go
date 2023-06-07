@@ -52,10 +52,9 @@ func NewFullNode(nodeIP string, nodePort, bootstrapPort int, storage interfaces.
 	// 	}
 	// }()
 
+	go fullNode.joinNetwork(bootstrapPort)
 	if isBootstrapNode {
 		go fullNode.bootstrap(bootstrapPort)
-	} else {
-		go fullNode.joinNetwork(bootstrapPort)
 	}
 
 	return &fullNode
@@ -262,7 +261,7 @@ func (fn *FullNode) LookUp(target []byte) ([]structs.Node, error) {
 				sl.Append(kBucket)
 			}
 
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 
 			recvNodes, err := client.FindNode(ctx,
@@ -369,6 +368,7 @@ func (fn *FullNode) joinNetwork(boostrapPort int) {
 		Port: boostrapPort,
 	}
 
+	fmt.Println("In Dial UDP")
 	conn, err := net.DialUDP("udp4", nil, &raddr)
 	if err != nil {
 		log.Fatal(err)
@@ -395,13 +395,25 @@ func (fn *FullNode) joinNetwork(boostrapPort int) {
 		log.Fatal(err)
 	}
 
+	fmt.Println("In Listen TCP")
 	lis, err := net.ListenTCP("tcp", tcpAddr)
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	fmt.Println("In AcceptTCP")
 	tcpConn, err := lis.AcceptTCP()
 	if err != nil {
+		select {
+		case <-ctx.Done():
+			fmt.Println("timeout reached")
+			return
+		default:
+			fmt.Println(err)
+		}
 		log.Fatal(err)
 	}
 
@@ -409,6 +421,7 @@ func (fn *FullNode) joinNetwork(boostrapPort int) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Println("In Deserialize Messages")
 
 	for i := 0; i < len(*kBucket); i++ {
 		node := (*kBucket)[i]
@@ -424,6 +437,7 @@ func (fn *FullNode) joinNetwork(boostrapPort int) {
 			log.Fatal(errors.New("bad ping"))
 		}
 	}
+	fmt.Println("Finish join network")
 }
 
 func (fn *FullNode) StoreValue(key string, data *[]byte) (string, error) {
@@ -463,11 +477,16 @@ func (fn *FullNode) StoreValue(key string, data *[]byte) (string, error) {
 		}
 
 		client := getFullNodeClient(&node.IP, &node.Port)
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		sender, err := client.Store(ctx)
 		if err != nil {
 			//fmt.Printf("ERROR Store(%v, %d) method", node.IP, node.Port)
+			if ctx.Err() == context.DeadlineExceeded {
+				// Handle timeout error
+				//fmt.Println("Timeout exceeded")
+				continue
+			}
 			fmt.Println(err.Error())
 		}
 		//fmt.Println("data bytes", dataBytes)
@@ -531,7 +550,7 @@ func (fn *FullNode) GetValue(target string) ([]byte, error) {
 		}
 
 		client := getFullNodeClient(&node.IP, &node.Port)
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
 		receiver, err := client.FindValue(ctx,
@@ -545,6 +564,11 @@ func (fn *FullNode) GetValue(target string) ([]byte, error) {
 			},
 		)
 		if err != nil {
+			if ctx.Err() == context.DeadlineExceeded {
+				// Handle timeout error
+				// fmt.Println("Timeout exceeded")
+				continue
+			}
 			fmt.Println(err.Error())
 		}
 		var init int32 = 0

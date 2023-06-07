@@ -45,7 +45,7 @@ func (rt *RoutingTable) isAlive(b Node) bool {
 
 	client := pb.NewFullNodeClient(conn)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	pbNode, err := client.Ping(ctx,

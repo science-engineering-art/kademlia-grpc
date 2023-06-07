@@ -31,7 +31,7 @@ func NewClientNode(ip string, port int) *FullNodeClient {
 }
 
 func (fn *FullNodeClient) Ping(sender structs.Node) (*structs.Node, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	node, err := fn.FullNodeClient.Ping(ctx,
