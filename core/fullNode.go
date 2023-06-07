@@ -105,7 +105,7 @@ func (fn *FullNode) Ping(ctx context.Context, sender *pb.Node) (*pb.Node, error)
 }
 
 func (fn *FullNode) Store(stream pb.FullNode_StoreServer) error {
-	fmt.Printf("INIT Store() method\n\n")
+	//fmt.Printf("INIT Store() method\n\n")
 
 	key := []byte{}
 	buffer := []byte{}
@@ -114,12 +114,12 @@ func (fn *FullNode) Store(stream pb.FullNode_StoreServer) error {
 	for {
 		data, err := stream.Recv()
 		if data == nil {
-			fmt.Printf("END Streaming\n\n")
+			//fmt.Printf("END Streaming\n\n")
 			break
 		}
 
 		if init == 0 {
-			fmt.Printf("INIT Streaming\n\n")
+			//fmt.Printf("INIT Streaming\n\n")
 			// add the sender to the Routing Table
 			sender := structs.Node{
 				ID:   data.Sender.ID,
@@ -134,22 +134,22 @@ func (fn *FullNode) Store(stream pb.FullNode_StoreServer) error {
 			buffer = append(buffer, data.Value.Buffer...)
 			init = data.Value.End
 		} else {
-			fmt.Printf("EXIT Store() method\n\n")
+			//fmt.Printf("EXIT Store() method\n\n")
 			return err
 		}
 
 		if err != nil {
-			fmt.Printf("EXIT Store() method\n\n")
+			//fmt.Printf("EXIT Store() method\n\n")
 			return err
 		}
 	}
 
 	err := fn.dht.Store(key, &buffer)
 	if err != nil {
-		fmt.Printf("EXIT Store() method\n\n")
+		//fmt.Printf("EXIT Store() method\n\n")
 		return err
 	}
-	fmt.Printf("EXIT Store() method\n\n")
+	//fmt.Printf("EXIT Store() method\n\n")
 	return nil
 }
 
@@ -192,9 +192,9 @@ func (fn *FullNode) FindValue(target *pb.Target, stream pb.FullNode_FindValueSer
 		response = pb.FindValueResponse{
 			KNeartestBuckets: &pb.KBucket{Bucket: []*pb.Node{}},
 			Value: &pb.Data{
-				Init:   target.Init,
-				End:    target.End,
-				Buffer: (*value)[int(target.Init):int(target.End)],
+				Init:   0,
+				End:    int32(len(*value)),
+				Buffer: *value,
 			},
 		}
 	} else {
@@ -426,26 +426,26 @@ func (fn *FullNode) joinNetwork(boostrapPort int) {
 }
 
 func (fn *FullNode) StoreValue(key string, data *[]byte) (string, error) {
-	fmt.Printf("INIT StoreValue() method\n\n")
+	//fmt.Printf("INIT StoreValue() method\n\n")
 
 	keyHash, _ := base64.RawStdEncoding.DecodeString(key)
 
 	nearestNeighbors, err := fn.LookUp(keyHash)
-	fmt.Printf("Neartest Neighbors:\n%v\n", nearestNeighbors)
+	//fmt.Printf("Neartest Neighbors:\n%v\n", nearestNeighbors)
 	if err != nil {
 		fmt.Printf("ERROR LookUP() method\n\n")
 		fmt.Printf("EXIT StoreValue() method\n\n")
 		return "", err
 	}
 
-	if len(nearestNeighbors) == 0 {
+	if len(nearestNeighbors) < structs.K {
 		err := fn.dht.Store(keyHash, data)
 		if err != nil {
-			fmt.Printf("ERROR Store(Me)\n\n")
-			fmt.Printf("EXIT StoreValue() method\n\n")
+			//fmt.Printf("ERROR Store(Me)\n\n")
+			//fmt.Printf("EXIT StoreValue() method\n\n")
 			return "", nil
 		}
-		fmt.Printf("EXIT StoreValue() method\n\n")
+		//fmt.Printf("EXIT StoreValue() method\n\n")
 		return key, nil
 	}
 
@@ -455,7 +455,7 @@ func (fn *FullNode) StoreValue(key string, data *[]byte) (string, error) {
 		defer cancel()
 		sender, err := client.Store(ctx)
 		if err != nil {
-			fmt.Printf("ERROR Store(%v, %d) method", node.IP, node.Port)
+			//fmt.Printf("ERROR Store(%v, %d) method", node.IP, node.Port)
 			fmt.Println(err.Error())
 		}
 		//fmt.Println("data bytes", dataBytes)
@@ -476,14 +476,14 @@ func (fn *FullNode) StoreValue(key string, data *[]byte) (string, error) {
 			},
 		)
 		if err != nil {
-			fmt.Printf("ERROR SendChunck(0, %d) method\n\n", len(*data))
-			fmt.Printf("EXIT StoreValue() method\n\n")
+			//fmt.Printf("ERROR SendChunck(0, %d) method\n\n", len(*data))
+			//fmt.Printf("EXIT StoreValue() method\n\n")
 			return "", err
 		}
 	}
 
-	fmt.Println("Stored ID: ", key, "Stored Data:", data)
-	fmt.Printf("EXIT StoreValue() method\n\n")
+	//fmt.Println("Stored ID: ", key, "Stored Data:", data)
+	//fmt.Printf("EXIT StoreValue() method\n\n")
 	return key, nil
 }
 
@@ -499,7 +499,7 @@ func (fn *FullNode) GetValue(target string) ([]byte, error) {
 	if err != nil {
 		return nil, nil
 	}
-
+	//fmt.Println(nearestNeighbors)
 	buffer := []byte{}
 
 	for _, node := range nearestNeighbors {
@@ -539,7 +539,7 @@ func (fn *FullNode) GetValue(target string) ([]byte, error) {
 				fmt.Println(err.Error())
 			}
 		}
-
+		//fmt.Println("Received value from STREAMING in GetValue():", buffer)
 		// Received data
 		if len(buffer) > 0 {
 			break

@@ -16,6 +16,7 @@ func NewStorage() *Storage {
 }
 
 func (s *Storage) Create(key []byte, data *[]byte) error {
+	//fmt.Println("INTO Create Method")
 	id := base64.RawStdEncoding.EncodeToString(key)
 
 	_, exists := s.KV[id]
@@ -24,7 +25,7 @@ func (s *Storage) Create(key []byte, data *[]byte) error {
 	}
 
 	s.KV[id] = data
-	//fmt.Println(s.KV[id])
+	//fmt.Println("The stored value in KV is: ", s.KV[id])
 	return nil
 }
 

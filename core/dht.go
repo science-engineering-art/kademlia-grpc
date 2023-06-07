@@ -14,6 +14,7 @@ type DHT struct {
 }
 
 func (fn *DHT) Store(key []byte, data *[]byte) error {
+	//fmt.Println("I'm inside Store() in DHT")
 	err := fn.Storage.Create(key, data)
 	if err != nil {
 		return err
