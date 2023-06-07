@@ -52,7 +52,7 @@ func NewFullNode(nodeIP string, nodePort, bootstrapPort int, storage interfaces.
 	// 	}
 	// }()
 
-	go fullNode.joinNetwork(bootstrapPort)
+	fullNode.joinNetwork(bootstrapPort)
 	if isBootstrapNode {
 		go fullNode.bootstrap(bootstrapPort)
 	}
@@ -400,44 +400,44 @@ func (fn *FullNode) joinNetwork(boostrapPort int) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	// ctx, cancel := context.WithTimeout(context.TODO(), 100*time.Millisecond)
+	// defer cancel()
 
-	ctx := context.Background()
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	fmt.Println("In AcceptTCP")
-	tcpConn, err := lis.AcceptTCP()
-	if err != nil {
-		select {
-		case <-ctx.Done():
-			fmt.Println("timeout reached")
-			return
-		default:
-			fmt.Println(err)
-		}
-		log.Fatal(err)
-	}
+	connChannel := make(chan net.Conn)
 
-	kBucket, err := utils.DeserializeMessage(tcpConn)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println("In Deserialize Messages")
+	go func() {
+		tcpConn, _ := lis.AcceptTCP()
+		connChannel <- tcpConn
+	}()
 
-	for i := 0; i < len(*kBucket); i++ {
-		node := (*kBucket)[i]
+	select {
+	case <-time.After(5 * time.Second):
+		fmt.Println("timeout reached")
+		return
+	case tcpConn := <-connChannel:
 
-		recvNode, err := NewClientNode(node.IP, node.Port).Ping(fn.dht.Node)
+		kBucket, err := utils.DeserializeMessage(tcpConn)
 		if err != nil {
 			log.Fatal(err)
 		}
+		fmt.Println("In Deserialize Messages")
 
-		if recvNode.Equal(node) {
-			fn.dht.RoutingTable.AddNode(node)
-		} else {
-			log.Fatal(errors.New("bad ping"))
+		for i := 0; i < len(*kBucket); i++ {
+			node := (*kBucket)[i]
+
+			recvNode, err := NewClientNode(node.IP, node.Port).Ping(fn.dht.Node)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			if recvNode.Equal(node) {
+				fn.dht.RoutingTable.AddNode(node)
+			} else {
+				log.Fatal(errors.New("bad ping"))
+			}
 		}
+		fmt.Println("Finish join network")
 	}
-	fmt.Println("Finish join network")
 }
 
 func (fn *FullNode) StoreValue(key string, data *[]byte) (string, error) {
