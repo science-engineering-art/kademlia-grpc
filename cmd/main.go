@@ -14,6 +14,7 @@ import (
 	"github.com/science-engineering-art/kademlia-grpc/core"
 	"github.com/science-engineering-art/kademlia-grpc/pb"
 	"github.com/science-engineering-art/kademlia-grpc/structs"
+	"github.com/science-engineering-art/kademlia-grpc/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
@@ -89,7 +90,7 @@ func main() {
 			client := GetFullNodeClient(&ipReceiver, &portReceiver)
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			idSender, _ := core.NewID(ipSender, portSender)
+			idSender, _ := utils.NewID(ipSender, portSender)
 			pbNode, err := client.Ping(ctx, &pb.Node{ID: idSender, IP: ipSender, Port: int32(portSender)})
 			if err != nil {
 				fmt.Println(err)
@@ -205,7 +206,7 @@ func main() {
 			client := GetFullNodeClient(&ip, &port)
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			idSender, _ := core.NewID(bootIp, bootPort)
+			idSender, _ := utils.NewID(bootIp, bootPort)
 			pbNode, err := client.Ping(ctx, &pb.Node{ID: idSender, IP: bootIp, Port: int32(bootPort)})
 			if err != nil {
 				fmt.Println(err)
@@ -241,7 +242,7 @@ func CreateFullNodeServer(ip *string, port *int) {
 		log.Fatal("cannot create grpc server: ", err)
 	}
 
-	id, _ := core.NewID(*ip, *port)
+	id, _ := utils.NewID(*ip, *port)
 	log.Printf("start gRPC server on %s with id %s", listener.Addr().String(), base64.RawURLEncoding.EncodeToString(id))
 	err = grpcServer.Serve(listener)
 	if err != nil {

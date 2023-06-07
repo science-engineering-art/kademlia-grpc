@@ -2,16 +2,13 @@ package core
 
 import (
 	"context"
-	"crypto/sha1"
 	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"log"
-	"math/big"
 	"net"
 	"sort"
-	"strconv"
 	"time"
 
 	"github.com/science-engineering-art/kademlia-grpc/interfaces"
@@ -20,14 +17,7 @@ import (
 	"github.com/science-engineering-art/kademlia-grpc/utils"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
-)
-
-const (
-	StoreValue = iota
-	KNeartestNodes
-	GetValue
 )
 
 type FullNode struct {
@@ -37,7 +27,7 @@ type FullNode struct {
 
 func NewFullNode(nodeIP string, nodePort, bootstrapPort int, storage interfaces.Persistence, isBootstrapNode bool) *FullNode {
 
-	id, _ := NewID(nodeIP, nodePort)
+	id, _ := utils.NewID(nodeIP, nodePort)
 	node := structs.Node{ID: id, IP: nodeIP, Port: nodePort}
 	routingTable := structs.NewRoutingTable(node)
 	dht := DHT{Node: node, RoutingTable: routingTable, Storage: storage}
@@ -53,6 +43,7 @@ func NewFullNode(nodeIP string, nodePort, bootstrapPort int, storage interfaces.
 	// }()
 
 	fullNode.joinNetwork(bootstrapPort)
+
 	if isBootstrapNode {
 		go fullNode.bootstrap(bootstrapPort)
 	}
@@ -61,10 +52,10 @@ func NewFullNode(nodeIP string, nodePort, bootstrapPort int, storage interfaces.
 }
 
 // Create gRPC Server
-func CreateGRPCServerFromFullNode(fullNode FullNode, grpcServerAddress string) {
+func (fn *FullNode) CreateGRPCServer(grpcServerAddress string) {
 	grpcServer := grpc.NewServer()
 
-	pb.RegisterFullNodeServer(grpcServer, &fullNode)
+	pb.RegisterFullNodeServer(grpcServer, fn)
 	reflection.Register(grpcServer)
 
 	listener, err := net.Listen("tcp", grpcServerAddress)
@@ -79,11 +70,11 @@ func CreateGRPCServerFromFullNode(fullNode FullNode, grpcServerAddress string) {
 	}
 }
 
-// newID generates a new random ID
-func NewID(ip string, port int) ([]byte, error) {
-	hashValue := sha1.Sum([]byte(ip + ":" + strconv.FormatInt(int64(port), 10)))
-	return []byte(hashValue[:]), nil
-}
+///////////////////////////////////////////////////////
+////// 										     //////
+//////            RPC KADEMLIA PROTOCOL          //////
+//////    									     //////
+///////////////////////////////////////////////////////
 
 func (fn *FullNode) Ping(ctx context.Context, sender *pb.Node) (*pb.Node, error) {
 
@@ -164,7 +155,7 @@ func (fn *FullNode) FindNode(ctx context.Context, target *pb.Target) (*pb.KBucke
 
 	bucket := fn.dht.FindNode(&target.ID)
 
-	return getKBucketFromNodeArray(bucket), nil
+	return utils.GetKBucketFromNodeArray(bucket), nil
 }
 
 func (fn *FullNode) FindValue(target *pb.Target, stream pb.FullNode_FindValueServer) error {
@@ -181,7 +172,7 @@ func (fn *FullNode) FindValue(target *pb.Target, stream pb.FullNode_FindValueSer
 
 	if value == nil && neighbors != nil {
 		response = pb.FindValueResponse{
-			KNeartestBuckets: getKBucketFromNodeArray(neighbors),
+			KNeartestBuckets: utils.GetKBucketFromNodeArray(neighbors),
 			Value: &pb.Data{
 				Init:   0,
 				End:    0,
@@ -205,19 +196,11 @@ func (fn *FullNode) FindValue(target *pb.Target, stream pb.FullNode_FindValueSer
 	return nil
 }
 
-func getKBucketFromNodeArray(nodes *[]structs.Node) *pb.KBucket {
-	result := pb.KBucket{Bucket: []*pb.Node{}}
-	for _, node := range *nodes {
-		result.Bucket = append(result.Bucket,
-			&pb.Node{
-				ID:   node.ID,
-				IP:   node.IP,
-				Port: int32(node.Port),
-			},
-		)
-	}
-	return &result
-}
+///////////////////////////////////////////////////////
+////// 										     //////
+//////            CORE KADEMLIA PROTOCOL         //////
+//////    									     //////
+///////////////////////////////////////////////////////
 
 func (fn *FullNode) LookUp(target []byte) ([]structs.Node, error) {
 
@@ -244,6 +227,9 @@ func (fn *FullNode) LookUp(target []byte) ([]structs.Node, error) {
 
 			// get RPC client
 			client := NewClientNode(node.IP, 8080)
+			if client == nil {
+				continue
+			}
 
 			// function to add the received nodes into the short list
 			addRecvNodes := func(recvNodes *pb.KBucket) {
@@ -303,6 +289,174 @@ func (fn *FullNode) LookUp(target []byte) ([]structs.Node, error) {
 	return kBucket, nil
 }
 
+func (fn *FullNode) StoreValue(key string, data *[]byte) (string, error) {
+	//fmt.Printf("INIT StoreValue() method\n\n")
+
+	keyHash, _ := base64.RawStdEncoding.DecodeString(key)
+
+	nearestNeighbors, err := fn.LookUp(keyHash)
+	//fmt.Printf("Neartest Neighbors:\n%v\n", nearestNeighbors)
+	if err != nil {
+		//fmt.Printf("ERROR LookUP() method\n\n")
+		//fmt.Printf("EXIT StoreValue() method\n\n")
+		return "", err
+	}
+
+	if len(nearestNeighbors) < structs.K {
+		err := fn.dht.Store(keyHash, data)
+		if err != nil {
+			//fmt.Printf("ERROR Store(Me)\n\n")
+			//fmt.Printf("EXIT StoreValue() method\n\n")
+			return "", nil
+		}
+		//fmt.Printf("EXIT StoreValue() method\n\n")
+		return key, nil
+	}
+
+	for index, node := range nearestNeighbors {
+		if index == len(nearestNeighbors)-1 && utils.ClosestNodeToKey(keyHash, fn.dht.ID, node.ID) == -1 {
+			err := fn.dht.Store(keyHash, data)
+			if err != nil {
+				//fmt.Printf("ERROR Store(Me)\n\n")
+				//fmt.Printf("EXIT StoreValue() method\n\n")
+				return "", nil
+			}
+			//fmt.Printf("EXIT StoreValue() method\n\n")
+			return key, nil
+		}
+
+		client := NewClientNode(node.IP, node.Port)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		sender, err := client.Store(ctx)
+		if err != nil {
+			//fmt.Printf("ERROR Store(%v, %d) method", node.IP, node.Port)
+			if ctx.Err() == context.DeadlineExceeded {
+				// Handle timeout error
+				//fmt.Println("Timeout exceeded")
+				continue
+			}
+			fmt.Println(err.Error())
+		}
+		//fmt.Println("data bytes", dataBytes)
+		err = sender.Send(
+			&pb.StoreData{
+				Sender: &pb.Node{
+					ID:   fn.dht.ID,
+					IP:   fn.dht.IP,
+					Port: int32(fn.dht.Port),
+				},
+				Key: keyHash,
+				// leandro_driguez: tiene sentido pasar todo el archivo?
+				Value: &pb.Data{
+					Init:   0,
+					End:    int32(len(*data)),
+					Buffer: *data,
+				},
+			},
+		)
+		if err != nil {
+			//fmt.Printf("ERROR SendChunck(0, %d) method\n\n", len(*data))
+			//fmt.Printf("EXIT StoreValue() method\n\n")
+			return "", err
+		}
+	}
+
+	//fmt.Println("Stored ID: ", key, "Stored Data:", data)
+	//fmt.Printf("EXIT StoreValue() method\n\n")
+	return key, nil
+}
+
+func (fn *FullNode) GetValue(target string) ([]byte, error) {
+	keyHash, _ := base64.RawStdEncoding.DecodeString(target)
+
+	val, err := fn.dht.Storage.Read(keyHash)
+	if err == nil {
+		return *val, nil
+	}
+
+	nearestNeighbors, err := fn.LookUp(keyHash)
+	if err != nil {
+		return nil, nil
+	}
+	//fmt.Println(nearestNeighbors)
+	buffer := []byte{}
+
+	for _, node := range nearestNeighbors {
+		if len(target) == 0 {
+			fmt.Println("Invalid target decoding.")
+			continue
+		}
+
+		clientChnn := make(chan pb.FullNodeClient)
+
+		go func() {
+			client := NewClientNode(node.IP, node.Port)
+			clientChnn <- client.FullNodeClient
+		}()
+
+		fmt.Println("Init Select-Case")
+		select {
+		case <-time.After(5 * time.Second):
+			fmt.Println("Timeout")
+			continue
+		case client := <-clientChnn:
+			ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+			defer cancel()
+
+			fmt.Println("Init FindValue")
+			receiver, err := client.FindValue(ctx,
+				&pb.Target{
+					ID: keyHash,
+					Sender: &pb.Node{
+						ID:   fn.dht.ID,
+						IP:   fn.dht.IP,
+						Port: int32(fn.dht.Port),
+					},
+				},
+			)
+			fmt.Println("End FindValue")
+			if err != nil {
+				if ctx.Err() == context.DeadlineExceeded {
+					// Handle timeout error
+					// fmt.Println("Timeout exceeded")
+					continue
+				}
+				fmt.Println(err.Error())
+			}
+			var init int32 = 0
+
+			for {
+				data, err := receiver.Recv()
+				if data == nil {
+					break
+				}
+				if init == data.Value.Init {
+					buffer = append(buffer, data.Value.Buffer...)
+					init = data.Value.End
+				} else {
+					fmt.Println(err.Error())
+				}
+			}
+			//fmt.Println("Received value from STREAMING in GetValue():", buffer)
+			// Received data
+			if len(buffer) > 0 {
+				goto RETURN
+				// break
+			}
+		}
+	}
+
+RETURN:
+	return buffer, nil
+}
+
+///////////////////////////////////////////////////////
+////// 										     //////
+//////                JOIN NETWORK               //////
+//////    									     //////
+///////////////////////////////////////////////////////
+
 func (fn *FullNode) bootstrap(port int) {
 	strAddr := fmt.Sprintf("0.0.0.0:%d", port)
 
@@ -348,7 +502,7 @@ func (fn *FullNode) bootstrap(port int) {
 			intVal := int(portInt)
 
 			host, _, _ := net.SplitHostPort(rAddr.String())
-			id, _ := NewID(host, intVal)
+			id, _ := utils.NewID(host, intVal)
 			fn.dht.RoutingTable.AddNode(structs.Node{ID: id, IP: host, Port: intVal})
 
 			bytesKBucket, err := utils.SerializeMessage(&kBucket)
@@ -425,7 +579,12 @@ func (fn *FullNode) joinNetwork(boostrapPort int) {
 		for i := 0; i < len(*kBucket); i++ {
 			node := (*kBucket)[i]
 
-			recvNode, err := NewClientNode(node.IP, node.Port).Ping(fn.dht.Node)
+			client := NewClientNode(node.IP, node.Port)
+			if client == nil {
+				continue
+			}
+
+			recvNode, err := client.Ping(fn.dht.Node)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -438,168 +597,6 @@ func (fn *FullNode) joinNetwork(boostrapPort int) {
 		}
 		fmt.Println("Finish join network")
 	}
-}
-
-func (fn *FullNode) StoreValue(key string, data *[]byte) (string, error) {
-	//fmt.Printf("INIT StoreValue() method\n\n")
-
-	keyHash, _ := base64.RawStdEncoding.DecodeString(key)
-
-	nearestNeighbors, err := fn.LookUp(keyHash)
-	//fmt.Printf("Neartest Neighbors:\n%v\n", nearestNeighbors)
-	if err != nil {
-		//fmt.Printf("ERROR LookUP() method\n\n")
-		//fmt.Printf("EXIT StoreValue() method\n\n")
-		return "", err
-	}
-
-	if len(nearestNeighbors) < structs.K {
-		err := fn.dht.Store(keyHash, data)
-		if err != nil {
-			//fmt.Printf("ERROR Store(Me)\n\n")
-			//fmt.Printf("EXIT StoreValue() method\n\n")
-			return "", nil
-		}
-		//fmt.Printf("EXIT StoreValue() method\n\n")
-		return key, nil
-	}
-
-	for index, node := range nearestNeighbors {
-		if index == len(nearestNeighbors)-1 && closestNodeToKey(keyHash, fn.dht.ID, node.ID) == -1 {
-			err := fn.dht.Store(keyHash, data)
-			if err != nil {
-				//fmt.Printf("ERROR Store(Me)\n\n")
-				//fmt.Printf("EXIT StoreValue() method\n\n")
-				return "", nil
-			}
-			//fmt.Printf("EXIT StoreValue() method\n\n")
-			return key, nil
-		}
-
-		client := getFullNodeClient(&node.IP, &node.Port)
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		sender, err := client.Store(ctx)
-		if err != nil {
-			//fmt.Printf("ERROR Store(%v, %d) method", node.IP, node.Port)
-			if ctx.Err() == context.DeadlineExceeded {
-				// Handle timeout error
-				//fmt.Println("Timeout exceeded")
-				continue
-			}
-			fmt.Println(err.Error())
-		}
-		//fmt.Println("data bytes", dataBytes)
-		err = sender.Send(
-			&pb.StoreData{
-				Sender: &pb.Node{
-					ID:   fn.dht.ID,
-					IP:   fn.dht.IP,
-					Port: int32(fn.dht.Port),
-				},
-				Key: keyHash,
-				// leandro_driguez: tiene sentido pasar todo el archivo?
-				Value: &pb.Data{
-					Init:   0,
-					End:    int32(len(*data)),
-					Buffer: *data,
-				},
-			},
-		)
-		if err != nil {
-			//fmt.Printf("ERROR SendChunck(0, %d) method\n\n", len(*data))
-			//fmt.Printf("EXIT StoreValue() method\n\n")
-			return "", err
-		}
-	}
-
-	//fmt.Println("Stored ID: ", key, "Stored Data:", data)
-	//fmt.Printf("EXIT StoreValue() method\n\n")
-	return key, nil
-}
-
-func closestNodeToKey(key []byte, id1 []byte, id2 []byte) int {
-	buf1 := new(big.Int).SetBytes(key)
-	buf2 := new(big.Int).SetBytes(id1)
-	buf3 := new(big.Int).SetBytes(id2)
-	result1 := new(big.Int).Xor(buf1, buf2)
-	result2 := new(big.Int).Xor(buf1, buf3)
-
-	return result1.Cmp(result2)
-}
-
-func (fn *FullNode) GetValue(target string) ([]byte, error) {
-	keyHash, _ := base64.RawStdEncoding.DecodeString(target)
-
-	val, err := fn.dht.Storage.Read(keyHash)
-	if err == nil {
-		return *val, nil
-	}
-
-	nearestNeighbors, err := fn.LookUp(keyHash)
-	if err != nil {
-		return nil, nil
-	}
-	//fmt.Println(nearestNeighbors)
-	buffer := []byte{}
-
-	for _, node := range nearestNeighbors {
-		if len(target) == 0 {
-			fmt.Println("Invalid target decoding.")
-			continue
-		}
-
-		client := getFullNodeClient(&node.IP, &node.Port)
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		receiver, err := client.FindValue(ctx,
-			&pb.Target{
-				ID: keyHash,
-				Sender: &pb.Node{
-					ID:   fn.dht.ID,
-					IP:   fn.dht.IP,
-					Port: int32(fn.dht.Port),
-				},
-			},
-		)
-		if err != nil {
-			if ctx.Err() == context.DeadlineExceeded {
-				// Handle timeout error
-				// fmt.Println("Timeout exceeded")
-				continue
-			}
-			fmt.Println(err.Error())
-		}
-		var init int32 = 0
-
-		for {
-			data, err := receiver.Recv()
-			if data == nil {
-				break
-			}
-			if init == data.Value.Init {
-				buffer = append(buffer, data.Value.Buffer...)
-				init = data.Value.End
-			} else {
-				fmt.Println(err.Error())
-			}
-		}
-		//fmt.Println("Received value from STREAMING in GetValue():", buffer)
-		// Received data
-		if len(buffer) > 0 {
-			break
-		}
-	}
-
-	return buffer, nil
-}
-
-func getFullNodeClient(ip *string, port *int) pb.FullNodeClient {
-	address := fmt.Sprintf("%s:%d", *ip, *port)
-	conn, _ := grpc.Dial(address, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
-	client := pb.NewFullNodeClient(conn)
-	return client
 }
 
 func (fn *FullNode) PrintRoutingTable() {

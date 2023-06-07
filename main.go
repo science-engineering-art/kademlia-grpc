@@ -46,7 +46,7 @@ func main() {
 			ip := utils.GetIpFromHost()
 			grpcServerAddress = ip + ":" + strconv.FormatInt(int64(port), 10)
 			fullNode = *core.NewFullNode(ip, port, bPort, storage, isB)
-			go core.CreateGRPCServerFromFullNode(fullNode, grpcServerAddress)
+			go fullNode.CreateGRPCServer(grpcServerAddress)
 
 			fmt.Println("Node running at:", ip, ":", port)
 
