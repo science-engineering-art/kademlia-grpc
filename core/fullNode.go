@@ -265,6 +265,7 @@ func (fn *FullNode) LookUp(target []byte) ([]structs.Node, error) {
 			)
 			if err.Error() == "rpc error: code = DeadlineExceeded desc = context deadline exceeded" {
 				fmt.Println("Crash connection")
+				sl.RemoveNode(&node)
 				continue
 			}
 			if err != nil {
