@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
 	"log"
@@ -65,18 +64,14 @@ func main() {
 			if err != nil {
 				fmt.Println(err.Error())
 			}
+			keyHash := utils.GetSha1Hash(data)
 			dataBytes := []byte(data)
-			sha := sha1.Sum(dataBytes)
-			keyHash := sha[:]
 			//fmt.Println("data bytes", dataBytes)
 			err = sender.Send(&pb.StoreData{Key: keyHash, Value: &pb.Data{Init: 0, End: int32(len(dataBytes)), Buffer: dataBytes}})
 			if err != nil {
 				fmt.Println(err.Error())
 			}
-			data_hash := sha1.Sum(dataBytes)
-			id := data_hash[:]
-			str := base64.RawStdEncoding.EncodeToString(id)
-			fmt.Println("Stored ID: ", str, "Stored Data:", dataBytes)
+			fmt.Println("Stored ID: ", keyHash, "Stored Data:", string(dataBytes))
 
 		case "ping":
 			if len(input) != 5 {
@@ -105,7 +100,7 @@ func main() {
 			ip := input[1]
 			port, _ := strconv.Atoi(input[2])
 			data := input[3]
-			target, _ := base64.RawStdEncoding.DecodeString(data)
+			target := utils.GetSha1Hash(data)
 
 			client := GetFullNodeClient(&ip, &port)
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -125,7 +120,7 @@ func main() {
 			ip := input[1]
 			port, _ := strconv.Atoi(input[2])
 			data := input[3]
-			target, _ := base64.RawStdEncoding.DecodeString(data)
+			target := utils.GetSha1Hash(data)
 
 			if len(target) == 0 {
 				fmt.Println("Invalid target decoding.")
@@ -178,7 +173,7 @@ func main() {
 			bootIp := input[3]
 			bootPort, _ := strconv.Atoi(input[4])
 			data := input[5]
-			target, _ := base64.RawStdEncoding.DecodeString(data)
+			target := utils.GetSha1Hash(data)
 
 			grpcServerAddress := ip + ":" + strconv.FormatInt(int64(port), 10)
 			fullNodeServer := *core.NewFullNode(ip, port, 0, structs.NewStorage(), false)

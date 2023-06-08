@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -180,6 +179,7 @@ func (fn *FullNode) FindValue(target *pb.Target, stream pb.FullNode_FindValueSer
 			},
 		}
 	} else if value != nil && neighbors == nil {
+		fmt.Println("Value from FindValue:", value)
 		response = pb.FindValueResponse{
 			KNeartestBuckets: &pb.KBucket{Bucket: []*pb.Node{}},
 			Value: &pb.Data{
@@ -246,9 +246,9 @@ func (fn *FullNode) LookUp(target []byte) ([]structs.Node, error) {
 				}
 				sl.Append(kBucket)
 			}
-			fmt.Println("Before timeout")
-			<-time.After(10 * time.Second)
-			fmt.Println("After timeout")
+			// fmt.Println("Before timeout")
+			// <-time.After(10 * time.Second)
+			// fmt.Println("After timeout")
 
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
@@ -263,7 +263,7 @@ func (fn *FullNode) LookUp(target []byte) ([]structs.Node, error) {
 					},
 				},
 			)
-			if err.Error() == "rpc error: code = DeadlineExceeded desc = context deadline exceeded" {
+			if err != nil && err.Error() == "rpc error: code = DeadlineExceeded desc = context deadline exceeded" {
 				fmt.Println("Crash connection")
 				sl.RemoveNode(&node)
 				continue
@@ -300,10 +300,10 @@ func (fn *FullNode) LookUp(target []byte) ([]structs.Node, error) {
 }
 
 func (fn *FullNode) StoreValue(key string, data *[]byte) (string, error) {
-	//fmt.Printf("INIT StoreValue() method\n\n")
-
-	keyHash, _ := base64.RawStdEncoding.DecodeString(key)
-
+	fmt.Printf("INIT StoreValue() method\n\n")
+	fmt.Println("The requested key is:", key)
+	keyHash := utils.GetSha1Hash(key)
+	fmt.Println("Keyhash before:", keyHash)
 	nearestNeighbors, err := fn.LookUp(keyHash)
 	//fmt.Printf("Neartest Neighbors:\n%v\n", nearestNeighbors)
 	if err != nil {
@@ -311,6 +311,7 @@ func (fn *FullNode) StoreValue(key string, data *[]byte) (string, error) {
 		//fmt.Printf("EXIT StoreValue() method\n\n")
 		return "", err
 	}
+	fmt.Println("Keyhash after:", keyHash)
 
 	if len(nearestNeighbors) < structs.K {
 		err := fn.dht.Store(keyHash, data)
@@ -378,7 +379,7 @@ func (fn *FullNode) StoreValue(key string, data *[]byte) (string, error) {
 }
 
 func (fn *FullNode) GetValue(target string, start int32, end int32) ([]byte, error) {
-	keyHash, _ := base64.RawStdEncoding.DecodeString(target)
+	keyHash := utils.GetSha1Hash(target)
 
 	val, err := fn.dht.Storage.Read(keyHash, start, end)
 	if err == nil {
@@ -402,7 +403,11 @@ func (fn *FullNode) GetValue(target string, start int32, end int32) ([]byte, err
 
 		go func() {
 			client := NewClientNode(node.IP, node.Port)
+			if client == nil {
+				return
+			}
 			clientChnn <- client.FullNodeClient
+			fmt.Println("Channel value is: ", clientChnn)
 		}()
 
 		fmt.Println("Init Select-Case")
@@ -414,6 +419,10 @@ func (fn *FullNode) GetValue(target string, start int32, end int32) ([]byte, err
 			ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 			defer cancel()
 
+			if client == nil {
+				continue
+			}
+
 			fmt.Println("Init FindValue")
 			receiver, err := client.FindValue(ctx,
 				&pb.Target{
@@ -423,8 +432,13 @@ func (fn *FullNode) GetValue(target string, start int32, end int32) ([]byte, err
 						IP:   fn.dht.IP,
 						Port: int32(fn.dht.Port),
 					},
+					Init: start,
+					End:  end,
 				},
 			)
+			if err != nil || receiver == nil {
+				continue
+			}
 			fmt.Println("End FindValue")
 			if err != nil {
 				if ctx.Err() == context.DeadlineExceeded {
@@ -433,19 +447,21 @@ func (fn *FullNode) GetValue(target string, start int32, end int32) ([]byte, err
 					continue
 				}
 				fmt.Println(err.Error())
+				continue
 			}
 			var init int32 = 0
 
 			for {
 				data, err := receiver.Recv()
-				if data == nil {
+				if err != nil {
+					fmt.Println(err.Error())
 					break
 				}
-				if init == data.Value.Init {
+				if data == nil {
+					break
+				} else if init == data.Value.Init {
 					buffer = append(buffer, data.Value.Buffer...)
 					init = data.Value.End
-				} else {
-					fmt.Println(err.Error())
 				}
 			}
 			//fmt.Println("Received value from STREAMING in GetValue():", buffer)

@@ -2,6 +2,7 @@ package core
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/science-engineering-art/kademlia-grpc/interfaces"
 	"github.com/science-engineering-art/kademlia-grpc/structs"
@@ -14,7 +15,7 @@ type DHT struct {
 }
 
 func (fn *DHT) Store(key []byte, data *[]byte) error {
-	//fmt.Println("I'm inside Store() in DHT")
+	fmt.Println("I'm inside Store() in DHT and key is:", key)
 	err := fn.Storage.Create(key, data)
 	if err != nil {
 		return err

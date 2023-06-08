@@ -28,6 +28,9 @@ func NewClientNode(ip string, port int) *FullNodeClient {
 		conn, _ := grpc.Dial(address,
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 			grpc.WithBlock())
+		if conn == nil {
+			return
+		}
 		grpcConn <- *conn
 	}()
 

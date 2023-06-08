@@ -63,16 +63,23 @@ func main() {
 			}
 			fmt.Println("Stored with ID: ", id)
 		case "get":
-			if len(input) != 2 {
+			if len(input) != 4 {
 				utils.DisplayHelp()
 				continue
 			}
 			key := input[1]
-			value, err := fullNode.GetValue(key, 0, 0)
+			start, _ := strconv.ParseInt(input[2], 10, 32)
+			end, _ := strconv.ParseInt(input[3], 10, 32)
+
+			value, err := fullNode.GetValue(key, int32(start), int32(end))
 			if err != nil {
 				fmt.Println(err.Error())
 			}
-			fmt.Println("The retrived value is:", string(value))
+			if value == nil || (value != nil && len(value) == 0) {
+				fmt.Println("There is no value in the network for that key")
+			} else {
+				fmt.Println("The retrived value is:", string(value))
+			}
 		case "dht":
 			fullNode.PrintRoutingTable()
 		}
