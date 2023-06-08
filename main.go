@@ -68,7 +68,7 @@ func main() {
 				continue
 			}
 			key := input[1]
-			value, err := fullNode.GetValue(key)
+			value, err := fullNode.GetValue(key, 0, 0)
 			if err != nil {
 				fmt.Println(err.Error())
 			}

@@ -36,6 +36,9 @@ func (s *Storage) Read(key []byte, start int32, end int32) (*[]byte, error) {
 	if !exists {
 		return nil, errors.New("the key is not found")
 	}
+	if end == 0 {
+		end = int32(len(*v))
+	}
 	result := (*v)[start:end]
 
 	return &result, nil
