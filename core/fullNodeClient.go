@@ -79,4 +79,4 @@ func (fn *FullNodeClient) Ping(sender structs.Node) (*structs.Node, error) {
 
 // func (fn *FullNodeClient) Store() {
 
-// }
+// }/
