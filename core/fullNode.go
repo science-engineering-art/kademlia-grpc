@@ -167,7 +167,7 @@ func (fn *FullNode) FindValue(target *pb.Target, stream pb.FullNode_FindValueSer
 	}
 	fn.dht.RoutingTable.AddNode(sender)
 
-	value, neighbors := fn.dht.FindValue(&target.ID)
+	value, neighbors := fn.dht.FindValue(&target.ID, target.Init, target.End)
 	response := pb.FindValueResponse{}
 
 	if value == nil && neighbors != nil {
@@ -367,10 +367,10 @@ func (fn *FullNode) StoreValue(key string, data *[]byte) (string, error) {
 	return key, nil
 }
 
-func (fn *FullNode) GetValue(target string) ([]byte, error) {
+func (fn *FullNode) GetValue(target string, start int32, end int32) ([]byte, error) {
 	keyHash, _ := base64.RawStdEncoding.DecodeString(target)
 
-	val, err := fn.dht.Storage.Read(keyHash)
+	val, err := fn.dht.Storage.Read(keyHash, start, end)
 	if err == nil {
 		return *val, nil
 	}

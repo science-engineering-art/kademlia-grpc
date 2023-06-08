@@ -29,15 +29,16 @@ func (s *Storage) Create(key []byte, data *[]byte) error {
 	return nil
 }
 
-func (s *Storage) Read(key []byte) (*[]byte, error) {
+func (s *Storage) Read(key []byte, start int32, end int32) (*[]byte, error) {
 	id := base64.RawStdEncoding.EncodeToString(key)
 
 	v, exists := s.KV[id]
 	if !exists {
 		return nil, errors.New("the key is not found")
 	}
+	result := (*v)[start:end]
 
-	return v, nil
+	return &result, nil
 }
 
 func (s *Storage) Delete(key []byte) error {

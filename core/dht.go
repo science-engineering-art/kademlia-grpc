@@ -22,8 +22,8 @@ func (fn *DHT) Store(key []byte, data *[]byte) error {
 	return nil
 }
 
-func (fn *DHT) FindValue(infoHash *[]byte) (value *[]byte, neighbors *[]structs.Node) {
-	value, err := fn.Storage.Read(*infoHash)
+func (fn *DHT) FindValue(infoHash *[]byte, start int32, end int32) (value *[]byte, neighbors *[]structs.Node) {
+	value, err := fn.Storage.Read(*infoHash, start, end)
 	if err != nil {
 		//fmt.Println("Find Value error: ", err)
 		neighbors = fn.RoutingTable.GetClosestContacts(structs.Alpha, *infoHash, []*structs.Node{&fn.Node}).Nodes
