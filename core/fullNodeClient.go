@@ -75,5 +75,8 @@ func (fn *FullNodeClient) Ping(sender structs.Node) (*structs.Node, error) {
 			Port: int(node.Port),
 		}, nil
 	}
-
 }
+
+// func (fn *FullNodeClient) Store() {
+
+// }

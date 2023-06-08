@@ -246,6 +246,9 @@ func (fn *FullNode) LookUp(target []byte) ([]structs.Node, error) {
 				}
 				sl.Append(kBucket)
 			}
+			fmt.Println("Before timeout")
+			<-time.After(10 * time.Second)
+			fmt.Println("After timeout")
 
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
@@ -260,6 +263,10 @@ func (fn *FullNode) LookUp(target []byte) ([]structs.Node, error) {
 					},
 				},
 			)
+			if err.Error() == "rpc error: code = DeadlineExceeded desc = context deadline exceeded" {
+				fmt.Println("Crash connection")
+				continue
+			}
 			if err != nil {
 				return nil, err
 			}
@@ -270,6 +277,7 @@ func (fn *FullNode) LookUp(target []byte) ([]structs.Node, error) {
 		sort.Sort(sl)
 
 		if addedNodes == 0 {
+			fmt.Println("0 added nodes")
 			break
 		}
 	}
@@ -280,6 +288,7 @@ func (fn *FullNode) LookUp(target []byte) ([]structs.Node, error) {
 		if i == structs.K {
 			break
 		}
+		fmt.Println("append node", node.IP)
 		kBucket = append(kBucket, structs.Node{
 			ID:   node.ID,
 			IP:   node.IP,
