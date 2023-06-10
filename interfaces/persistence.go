@@ -3,7 +3,7 @@ package interfaces
 type Persistence interface {
 	Create(key []byte, data *[]byte) error
 
-	Read(key []byte, start int32, end int32) (data *[]byte, err error)
+	Read(key []byte, start int64, end int64) (data *[]byte, err error)
 
 	Delete(key []byte) error
 }

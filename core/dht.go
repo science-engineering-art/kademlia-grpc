@@ -15,15 +15,20 @@ type DHT struct {
 }
 
 func (fn *DHT) Store(key []byte, data *[]byte) error {
-	fmt.Println("I'm inside Store() in DHT and key is:", key)
+	fmt.Printf("INIT DHT.Store(%v) len(*data)=%d\n", key, len(*data))
+	defer fmt.Printf("END DHT.Store(%v)\n", key)
+
+	fmt.Println("Before Storage.Create()")
 	err := fn.Storage.Create(key, data)
+	fmt.Println("After Storage.Create()")
 	if err != nil {
+		fmt.Println("ERROR line:23 DHT.Storage.Create()")
 		return err
 	}
 	return nil
 }
 
-func (fn *DHT) FindValue(infoHash *[]byte, start int32, end int32) (value *[]byte, neighbors *[]structs.Node) {
+func (fn *DHT) FindValue(infoHash *[]byte, start int64, end int64) (value *[]byte, neighbors *[]structs.Node) {
 	value, err := fn.Storage.Read(*infoHash, start, end)
 	if err != nil {
 		//fmt.Println("Find Value error: ", err)

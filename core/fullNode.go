@@ -6,10 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"net"
 	"sort"
 	"time"
 
+	base58 "github.com/jbenet/go-base58"
 	"github.com/science-engineering-art/kademlia-grpc/interfaces"
 	"github.com/science-engineering-art/kademlia-grpc/pb"
 	"github.com/science-engineering-art/kademlia-grpc/structs"
@@ -95,21 +97,26 @@ func (fn *FullNode) Ping(ctx context.Context, sender *pb.Node) (*pb.Node, error)
 }
 
 func (fn *FullNode) Store(stream pb.FullNode_StoreServer) error {
-	//fmt.Printf("INIT Store() method\n\n")
+	fmt.Printf("INIT FullNode.Store()\n\n")
+	defer fmt.Printf("END FullNode.Store()\n\n")
 
 	key := []byte{}
 	buffer := []byte{}
-	var init int32 = 0
+	var init int64 = 0
 
 	for {
 		data, err := stream.Recv()
 		if data == nil {
-			//fmt.Printf("END Streaming\n\n")
+			fmt.Printf("END Streaming\n\n")
 			break
+		}
+		if err != nil {
+			fmt.Printf("EXIT line:133 Store() method\n\n")
+			return errors.New("missing chunck")
 		}
 
 		if init == 0 {
-			//fmt.Printf("INIT Streaming\n\n")
+			fmt.Printf("INIT Streaming\n\n")
 			// add the sender to the Routing Table
 			sender := structs.Node{
 				ID:   data.Sender.ID,
@@ -124,22 +131,18 @@ func (fn *FullNode) Store(stream pb.FullNode_StoreServer) error {
 			buffer = append(buffer, data.Value.Buffer...)
 			init = data.Value.End
 		} else {
-			//fmt.Printf("EXIT Store() method\n\n")
+			fmt.Printf("ERROR missing chunck\n\n")
 			return err
 		}
-
-		if err != nil {
-			//fmt.Printf("EXIT Store() method\n\n")
-			return err
-		}
+		fmt.Printf("OKKKK ===> FullNode(%s).Recv(%d, %d)\n", fn.dht.IP, data.Value.Init, data.Value.End)
 	}
+	// fmt.Println("Received Data:", buffer)
 
 	err := fn.dht.Store(key, &buffer)
 	if err != nil {
-		//fmt.Printf("EXIT Store() method\n\n")
+		fmt.Printf("ERROR line:140 DHT.Store()\n\n")
 		return err
 	}
-	//fmt.Printf("EXIT Store() method\n\n")
 	return nil
 }
 
@@ -184,7 +187,7 @@ func (fn *FullNode) FindValue(target *pb.Target, stream pb.FullNode_FindValueSer
 			KNeartestBuckets: &pb.KBucket{Bucket: []*pb.Node{}},
 			Value: &pb.Data{
 				Init:   0,
-				End:    int32(len(*value)),
+				End:    int64(len(*value)),
 				Buffer: *value,
 			},
 		}
@@ -203,7 +206,6 @@ func (fn *FullNode) FindValue(target *pb.Target, stream pb.FullNode_FindValueSer
 ///////////////////////////////////////////////////////
 
 func (fn *FullNode) LookUp(target []byte) ([]structs.Node, error) {
-
 	sl := fn.dht.RoutingTable.GetClosestContacts(structs.Alpha, target, []*structs.Node{})
 
 	contacted := make(map[string]bool)
@@ -300,86 +302,84 @@ func (fn *FullNode) LookUp(target []byte) ([]structs.Node, error) {
 }
 
 func (fn *FullNode) StoreValue(key string, data *[]byte) (string, error) {
-	fmt.Printf("INIT StoreValue() method\n\n")
-	fmt.Println("The requested key is:", key)
-	keyHash := utils.GetSha1Hash(key)
-	fmt.Println("Keyhash before:", keyHash)
+	fmt.Printf("INIT FullNode.StoreValue(%s) method\n\n", key)
+	defer fmt.Printf("EXIT FullNode.StoreValue(%s) method\n\n", key)
+
+	keyHash := base58.Decode(key)
 	nearestNeighbors, err := fn.LookUp(keyHash)
-	//fmt.Printf("Neartest Neighbors:\n%v\n", nearestNeighbors)
 	if err != nil {
-		//fmt.Printf("ERROR LookUP() method\n\n")
-		//fmt.Printf("EXIT StoreValue() method\n\n")
+		fmt.Printf("ERROR LookUP() method\n\n")
 		return "", err
 	}
-	fmt.Println("Keyhash after:", keyHash)
 
 	if len(nearestNeighbors) < structs.K {
 		err := fn.dht.Store(keyHash, data)
 		if err != nil {
-			//fmt.Printf("ERROR Store(Me)\n\n")
-			//fmt.Printf("EXIT StoreValue() method\n\n")
-			return "", nil
+			fmt.Printf("ERROR DHT.Store(Me)\n\n")
 		}
-		//fmt.Printf("EXIT StoreValue() method\n\n")
-		return key, nil
 	}
 
 	for index, node := range nearestNeighbors {
-		if index == len(nearestNeighbors)-1 && utils.ClosestNodeToKey(keyHash, fn.dht.ID, node.ID) == -1 {
+		if index == structs.K-1 && utils.ClosestNodeToKey(keyHash, fn.dht.ID, node.ID) == -1 {
 			err := fn.dht.Store(keyHash, data)
 			if err != nil {
-				//fmt.Printf("ERROR Store(Me)\n\n")
-				//fmt.Printf("EXIT StoreValue() method\n\n")
-				return "", nil
+				fmt.Printf("ERROR DHT.Store(Me)\n\n")
 			}
-			//fmt.Printf("EXIT StoreValue() method\n\n")
-			return key, nil
+			break
 		}
 
 		client := NewClientNode(node.IP, node.Port)
+
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
+
 		sender, err := client.Store(ctx)
 		if err != nil {
-			//fmt.Printf("ERROR Store(%v, %d) method", node.IP, node.Port)
+			fmt.Printf("ERROR Store(%v, %d) method", node.IP, node.Port)
 			if ctx.Err() == context.DeadlineExceeded {
 				// Handle timeout error
-				//fmt.Println("Timeout exceeded")
+				fmt.Println("Timeout exceeded")
 				continue
 			}
 			fmt.Println(err.Error())
 		}
-		//fmt.Println("data bytes", dataBytes)
-		err = sender.Send(
-			&pb.StoreData{
-				Sender: &pb.Node{
-					ID:   fn.dht.ID,
-					IP:   fn.dht.IP,
-					Port: int32(fn.dht.Port),
+		// fmt.Println("data bytes", dataBytes)
+
+		for i := 0; i < len(*data); i += 1024 {
+			j := int(math.Min(float64(i+1024), float64(len(*data))))
+
+			err = sender.Send(
+				&pb.StoreData{
+					Sender: &pb.Node{
+						ID:   fn.dht.ID,
+						IP:   fn.dht.IP,
+						Port: int32(fn.dht.Port),
+					},
+					Key: keyHash,
+					Value: &pb.Data{
+						Init:   int64(i),
+						End:    int64(j),
+						Buffer: (*data)[i:j],
+					},
 				},
-				Key: keyHash,
-				// leandro_driguez: tiene sentido pasar todo el archivo?
-				Value: &pb.Data{
-					Init:   0,
-					End:    int32(len(*data)),
-					Buffer: *data,
-				},
-			},
-		)
-		if err != nil {
-			//fmt.Printf("ERROR SendChunck(0, %d) method\n\n", len(*data))
-			//fmt.Printf("EXIT StoreValue() method\n\n")
-			return "", err
+			)
+			if err != nil {
+				fmt.Printf("ERROR SendChunck(0, %d) method\n\n", len(*data))
+				break
+				// return "", err
+			}
+			fmt.Printf("OKKKK ===> FullNode(%s).Send(%d, %d)\n", fn.dht.IP, i, j)
 		}
+
 	}
 
-	//fmt.Println("Stored ID: ", key, "Stored Data:", data)
-	//fmt.Printf("EXIT StoreValue() method\n\n")
+	// fmt.Println("Stored ID: ", key, "Stored Data:", data)
+	fmt.Println("===> OKKKK")
 	return key, nil
 }
 
-func (fn *FullNode) GetValue(target string, start int32, end int32) ([]byte, error) {
-	keyHash := utils.GetSha1Hash(target)
+func (fn *FullNode) GetValue(target string, start int64, end int64) ([]byte, error) {
+	keyHash := base58.Decode(target)
 
 	val, err := fn.dht.Storage.Read(keyHash, start, end)
 	if err == nil {
@@ -449,7 +449,7 @@ func (fn *FullNode) GetValue(target string, start int32, end int32) ([]byte, err
 				fmt.Println(err.Error())
 				continue
 			}
-			var init int32 = 0
+			var init int64 = 0
 
 			for {
 				data, err := receiver.Recv()

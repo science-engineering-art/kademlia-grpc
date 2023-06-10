@@ -71,7 +71,7 @@ func main() {
 			start, _ := strconv.ParseInt(input[2], 10, 32)
 			end, _ := strconv.ParseInt(input[3], 10, 32)
 
-			value, err := fullNode.GetValue(key, int32(start), int32(end))
+			value, err := fullNode.GetValue(key, int64(start), int64(end))
 			if err != nil {
 				fmt.Println(err.Error())
 			}

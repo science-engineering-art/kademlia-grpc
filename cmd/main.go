@@ -67,7 +67,7 @@ func main() {
 			keyHash := utils.GetSha1Hash(data)
 			dataBytes := []byte(data)
 			//fmt.Println("data bytes", dataBytes)
-			err = sender.Send(&pb.StoreData{Key: keyHash, Value: &pb.Data{Init: 0, End: int32(len(dataBytes)), Buffer: dataBytes}})
+			err = sender.Send(&pb.StoreData{Key: keyHash, Value: &pb.Data{Init: 0, End: int64(len(dataBytes)), Buffer: dataBytes}})
 			if err != nil {
 				fmt.Println(err.Error())
 			}
@@ -138,7 +138,7 @@ func main() {
 
 			buffer := []byte{}
 			nearestNeighbors := []*pb.Node{}
-			var init int32 = 0
+			var init int64 = 0
 
 			for {
 				data, err := receiver.Recv()

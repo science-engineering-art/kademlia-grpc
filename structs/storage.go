@@ -29,13 +29,13 @@ func (s *Storage) Create(key []byte, data *[]byte) error {
 	return nil
 }
 
-func (s *Storage) Read(key []byte, start int32, end int32) (*[]byte, error) {
+func (s *Storage) Read(key []byte, start int64, end int64) (*[]byte, error) {
 	v, exists := s.KV[string(key)]
 	if !exists {
 		return nil, errors.New("the key is not found")
 	}
 	if end == 0 {
-		end = int32(len(*v))
+		end = int64(len(*v))
 	}
 	result := (*v)[start:end]
 	fmt.Println("Result is: ", result)

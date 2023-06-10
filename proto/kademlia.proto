@@ -15,8 +15,8 @@ message Node {
 }
 
 message Data {
-    int32 Init   = 1;
-    int32 End    = 2;
+    int64 Init   = 1;
+    int64 End    = 2;
     bytes Buffer = 3;
 }
 
@@ -28,8 +28,8 @@ message StoreData{
 
 message Target {
     bytes ID    = 1;
-    int32 Init  = 2;
-    int32 End   = 3;
+    int64 Init  = 2;
+    int64 End   = 3;
     Node Sender = 4;
 }
 
