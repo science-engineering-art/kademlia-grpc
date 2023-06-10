@@ -7,5 +7,5 @@ type Persistence interface {
 
 	Delete(key []byte) error
 
-	GetKeys(key []byte) [][]byte
+	GetKeys() [][]byte
 }
