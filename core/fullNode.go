@@ -59,6 +59,8 @@ func (fn *FullNode) CreateGRPCServer(grpcServerAddress string) {
 	pb.RegisterFullNodeServer(grpcServer, fn)
 	reflection.Register(grpcServer)
 
+	go fn.Republish()
+
 	listener, err := net.Listen("tcp", grpcServerAddress)
 	if err != nil {
 		log.Fatal("cannot create grpc server: ", err)
@@ -634,3 +636,21 @@ func (fn *FullNode) PrintRoutingTable() {
 		}
 	}
 }
+
+///////////////////////////////////////////////////////
+////// 										     //////
+//////                REPLICATION                //////
+//////    									     //////
+///////////////////////////////////////////////////////
+
+func (fn *FullNode) Republish() {
+	for {
+	  <-time.After(time.Hour)
+	  for _, key range fn.dht.Storage.GetKeys() {
+		data := fn.dht.Storage.Read(key, 0, 0)
+		go func() {
+		  fn.StoreValue(key, data)
+		}()
+	  }
+	}
+  }
