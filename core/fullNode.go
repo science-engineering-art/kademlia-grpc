@@ -646,7 +646,11 @@ func (fn *FullNode) PrintRoutingTable() {
 func (fn *FullNode) Republish() {
 	for {
 	  <-time.After(time.Hour)
-	  for _, key range fn.dht.Storage.GetKeys() {
+	  keys := fn.dht.Storage.GetKeys()
+	  if keys == nil{
+		break
+	  }
+	  for _, key range keys{
 		data := fn.dht.Storage.Read(key, 0, 0)
 		go func() {
 		  fn.StoreValue(key, data)
