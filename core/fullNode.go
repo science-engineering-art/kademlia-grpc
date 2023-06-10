@@ -651,9 +651,10 @@ func (fn *FullNode) Republish() {
 			break
 		}
 		for _, key := range keys {
-			data := fn.dht.Storage.Read(key, 0, 0)
+			data, _ := fn.dht.Storage.Read(key, 0, 0)
+			keyStr := base58.Encode(key)
 			go func() {
-				fn.StoreValue(key, data)
+				fn.StoreValue(keyStr, data)
 			}()
 		}
 	}
