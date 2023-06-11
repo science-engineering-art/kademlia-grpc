@@ -48,7 +48,7 @@ func main() {
 			fullNode = *core.NewFullNode(ip, port, bPort, storage, isB)
 			go fullNode.CreateGRPCServer(grpcServerAddress)
 
-			fmt.Println("Node running at:", ip, ":", port)
+			//fmt.Println("Node running at:", ip, ":", port)
 
 		case "store":
 			if len(input) != 3 {
@@ -73,12 +73,12 @@ func main() {
 
 			value, err := fullNode.GetValue(key, int64(start), int64(end))
 			if err != nil {
-				fmt.Println(err.Error())
+				//fmt.Println(err.Error())
 			}
 			if value == nil || (value != nil && len(value) == 0) {
-				fmt.Println("There is no value in the network for that key")
+				//fmt.Println("There is no value in the network for that key")
 			} else {
-				fmt.Println("The retrived value is:", string(value))
+				//fmt.Println("The retrived value is:", string(value))
 			}
 		case "dht":
 			fullNode.PrintRoutingTable()

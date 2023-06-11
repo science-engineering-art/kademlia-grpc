@@ -62,16 +62,16 @@ func main() {
 			defer cancel()
 			sender, err := client.Store(ctx)
 			if err != nil {
-				fmt.Println(err.Error())
+				//fmt.Println(err.Error())
 			}
 			keyHash := utils.GetSha1Hash(data)
 			dataBytes := []byte(data)
-			//fmt.Println("data bytes", dataBytes)
+			////fmt.Println("data bytes", dataBytes)
 			err = sender.Send(&pb.StoreData{Key: keyHash, Value: &pb.Data{Init: 0, End: int64(len(dataBytes)), Buffer: dataBytes}})
 			if err != nil {
-				fmt.Println(err.Error())
+				//fmt.Println(err.Error())
 			}
-			fmt.Println("Stored ID: ", keyHash, "Stored Data:", string(dataBytes))
+			//fmt.Println("Stored ID: ", keyHash, "Stored Data:", string(dataBytes))
 
 		case "ping":
 			if len(input) != 5 {
@@ -204,7 +204,7 @@ func main() {
 			idSender, _ := utils.NewID(bootIp, bootPort)
 			pbNode, err := client.Ping(ctx, &pb.Node{ID: idSender, IP: bootIp, Port: int32(bootPort)})
 			if err != nil {
-				fmt.Println(err)
+				//fmt.Println(err)
 			}
 			fmt.Println("Made Ping from ", bootIp, ":", bootPort, "to", pbNode.IP, ":", pbNode.Port)
 			nearestNodes, _ := fullNodeServer.LookUp(target)

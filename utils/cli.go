@@ -12,7 +12,7 @@ func GetIpFromHost() string {
 	cmd.Stdout = &out
 	err := cmd.Run()
 	if err != nil {
-		fmt.Println("Error running docker inspect:", err)
+		//fmt.Println("Error running docker inspect:", err)
 		return ""
 	}
 	ip := strings.TrimSpace(out.String())

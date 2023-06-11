@@ -3,6 +3,7 @@ package structs
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"sync"
@@ -72,6 +73,15 @@ func (rt *RoutingTable) AddNode(b Node) error {
 	rt.mutex.Lock()
 	defer rt.mutex.Unlock()
 
+	if b.Equal(rt.NodeInfo) {
+		return errors.New("you cannot add yourself into the Routing Table")
+	}
+
+	if b.Port != rt.NodeInfo.Port {
+		err := fmt.Sprintf("you cannot add a node with port %d", b.Port)
+		return errors.New(err)
+	}
+
 	// get the correspondient bucket
 	bIndex := getBucketIndex(rt.NodeInfo.ID, b.ID)
 	bucket := rt.KBuckets[bIndex]
@@ -94,7 +104,7 @@ func (rt *RoutingTable) AddNode(b Node) error {
 
 RETURN:
 	rt.KBuckets[bIndex] = bucket
-	//fmt.Println(rt.KBuckets)
+	////fmt.Println(rt.KBuckets)
 	return nil
 }
 
@@ -137,7 +147,7 @@ func (rt *RoutingTable) GetClosestContacts(num int, target []byte, ignoredNodes 
 	defer rt.mutex.Unlock()
 	// First we need to build the list of adjacent indices to our target
 	// in order
-	//fmt.Println(rt.NodeInfo.ID, target)
+	////fmt.Println(rt.NodeInfo.ID, target)
 	index := getBucketIndex(rt.NodeInfo.ID, target)
 	indexList := []int{index}
 	i := index - 1

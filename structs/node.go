@@ -1,7 +1,6 @@
 package structs
 
 import (
-	"bytes"
 	"strings"
 )
 
@@ -11,8 +10,7 @@ type Node struct {
 	Port int    `json:"port,omitempty"`
 }
 
-func (b Node) Equal(other Node) bool {
-	return bytes.Equal(b.ID, other.ID) &&
-		strings.EqualFold(b.IP, other.IP) &&
+func (b *Node) Equal(other Node) bool {
+	return strings.EqualFold(b.IP, other.IP) &&
 		b.Port == other.Port
 }

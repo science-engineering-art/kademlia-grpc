@@ -2,7 +2,6 @@ package structs
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/jbenet/go-base58"
 )
@@ -18,16 +17,16 @@ func NewStorage() *Storage {
 }
 
 func (s *Storage) Create(key []byte, data *[]byte) error {
-	fmt.Println("INTO Create Method:", key)
+	//fmt.Println("INTO Create Method:", key)
 	id := string(key)
-	fmt.Println("The id is:", id)
+	//fmt.Println("The id is:", id)
 	_, exists := s.KV[id]
 	if exists {
 		return errors.New("the key already exists")
 	}
 
 	s.KV[id] = data
-	fmt.Println("The stored value in KV is: ", s.KV[id])
+	//fmt.Println("The stored value in KV is: ", s.KV[id])
 	return nil
 }
 
@@ -40,7 +39,7 @@ func (s *Storage) Read(key []byte, start int64, end int64) (*[]byte, error) {
 		end = int64(len(*v))
 	}
 	result := (*v)[start:end]
-	fmt.Println("Result is: ", result)
+	//fmt.Println("Result is: ", result)
 	return &result, nil
 }
 
