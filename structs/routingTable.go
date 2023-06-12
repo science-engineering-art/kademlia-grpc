@@ -23,7 +23,7 @@ const (
 	B = 160
 
 	// the maximum number of contacts stored in a bucket
-	K = 20
+	K = 5
 )
 
 type RoutingTable struct {
