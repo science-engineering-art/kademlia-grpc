@@ -8,8 +8,8 @@ import (
 
 	"github.com/science-engineering-art/kademlia-grpc/pb"
 	"github.com/science-engineering-art/kademlia-grpc/structs"
+	"github.com/science-engineering-art/kademlia-grpc/utils"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 type FullNodeClient struct {
@@ -23,22 +23,33 @@ func NewClientNode(ip string, port int) *FullNodeClient {
 
 	grpcConn := make(chan grpc.ClientConn)
 
+	fmt.Println("Before TLS Client")
+	tlsCred, _ := utils.ClientTLSCredentials()
+
 	go func() {
+		fmt.Println("Try stablish communication")
 		// stablish connection
 		conn, _ := grpc.Dial(address,
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
-			grpc.WithBlock())
+			grpc.WithTransportCredentials(tlsCred))
 		if conn == nil {
+			fmt.Println("Connection failed!")
 			return
 		}
+		fmt.Println("Stablish correct connection")
 		grpcConn <- *conn
 	}()
 
 	select {
-	case <-time.After(5 * time.Second):
+	case <-time.After(30 * time.Second):
+		fmt.Println("n@@@@@@@@@@@@@@@@@@@@@@@@@")
 		return nil
 	case conn := <-grpcConn:
 		client := pb.NewFullNodeClient(&conn)
+		if client != nil {
+			fmt.Println("OKKKKKKKKKK")
+		} else {
+			fmt.Println("NOOOOOOOOOO")
+		}
 		fnClient := FullNodeClient{
 			FullNodeClient: client,
 			IP:             ip,

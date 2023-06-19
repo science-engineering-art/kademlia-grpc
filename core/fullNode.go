@@ -34,15 +34,15 @@ func NewFullNode(nodeIP string, nodePort, bootstrapPort int, storage interfaces.
 	dht := DHT{Node: node, RoutingTable: routingTable, Storage: storage}
 	fullNode := FullNode{dht: &dht}
 
-	// go func() {
-	// 	for {
-	// 		<-time.After(10 * time.Second)
-	// 		fmt.Println("\nROUTING TABLE:")
-	// 		fmt.Printf("ME: %v\n\n", fullNode.dht.Node)
-	// 		fullNode.PrintRoutingTable()
-	// 		fmt.Printf("\n")
-	// 	}
-	// }()
+	go func() {
+		for {
+			<-time.After(10 * time.Second)
+			fmt.Println("\nROUTING TABLE:")
+			fmt.Printf("ME: %v\n\n", fullNode.dht.Node)
+			fullNode.PrintRoutingTable()
+			fmt.Printf("\n")
+		}
+	}()
 
 	go fullNode.joinNetwork(bootstrapPort)
 
@@ -55,7 +55,12 @@ func NewFullNode(nodeIP string, nodePort, bootstrapPort int, storage interfaces.
 
 // Create gRPC Server
 func (fn *FullNode) CreateGRPCServer(grpcServerAddress string) {
-	grpcServer := grpc.NewServer()
+
+	fmt.Println("Before TLS Credentials")
+	tlsCred, err := utils.ServerTLSCredentials()
+	fmt.Println("TLS credentials loaded", tlsCred, err)
+
+	grpcServer := grpc.NewServer(grpc.Creds(tlsCred))
 
 	pb.RegisterFullNodeServer(grpcServer, fn)
 	reflection.Register(grpcServer)
