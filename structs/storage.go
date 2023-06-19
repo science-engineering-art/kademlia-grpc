@@ -2,8 +2,7 @@ package structs
 
 import (
 	"errors"
-
-	"github.com/jbenet/go-base58"
+	"fmt"
 )
 
 type Storage struct {
@@ -57,9 +56,12 @@ func (s *Storage) Delete(key []byte) error {
 
 func (s *Storage) GetKeys() [][]byte {
 	keys := [][]byte{}
-	for k := range s.KV {
-		keyStr := base58.Decode(k)
+	for k, v := range s.KV {
+		fmt.Println("Inside GetKeys", k, v)
+		keyStr := []byte(k)
+		fmt.Println(keyStr)
 		keys = append(keys, keyStr)
 	}
+	fmt.Println(keys)
 	return keys
 }

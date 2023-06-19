@@ -78,7 +78,7 @@ func main() {
 			if value == nil || (value != nil && len(value) == 0) {
 				//fmt.Println("There is no value in the network for that key")
 			} else {
-				//fmt.Println("The retrived value is:", string(value))
+				fmt.Println("The retrived value is:", string(value))
 			}
 		case "dht":
 			fullNode.PrintRoutingTable()
