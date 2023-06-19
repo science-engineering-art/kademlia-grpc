@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"log"
@@ -13,6 +12,7 @@ import (
 
 	base58 "github.com/jbenet/go-base58"
 	"github.com/science-engineering-art/kademlia-grpc/interfaces"
+	ntw "github.com/science-engineering-art/kademlia-grpc/net"
 	"github.com/science-engineering-art/kademlia-grpc/pb"
 	"github.com/science-engineering-art/kademlia-grpc/structs"
 	"github.com/science-engineering-art/kademlia-grpc/utils"
@@ -34,17 +34,17 @@ func NewFullNode(nodeIP string, nodePort, bootstrapPort int, storage interfaces.
 	dht := DHT{Node: node, RoutingTable: routingTable, Storage: storage}
 	fullNode := FullNode{dht: &dht}
 
-	go func() {
-		for {
-			<-time.After(10 * time.Second)
-			fmt.Println("\nROUTING TABLE:")
-			fmt.Printf("ME: %v\n\n", fullNode.dht.Node)
-			fullNode.PrintRoutingTable()
-			fmt.Printf("\n")
-		}
-	}()
+	// go func() {
+	// 	for {
+	// 		<-time.After(10 * time.Second)
+	// 		fmt.Println("\nROUTING TABLE:")
+	// 		fmt.Printf("ME: %v\n\n", fullNode.dht.Node)
+	// 		fullNode.PrintRoutingTable()
+	// 		fmt.Printf("\n")
+	// 	}
+	// }()
 
-	fullNode.joinNetwork(bootstrapPort)
+	go fullNode.joinNetwork(bootstrapPort)
 
 	if isBootstrapNode {
 		go fullNode.bootstrap(bootstrapPort)
@@ -474,8 +474,8 @@ func (fn *FullNode) GetValue(target string, start int64, end int64) ([]byte, err
 			////fmt.Println("Received value from STREAMING in GetValue():", buffer)
 			// Received data
 			if len(buffer) > 0 {
-				goto RETURN
 				// break
+				goto RETURN
 			}
 		}
 	}
@@ -491,180 +491,60 @@ RETURN:
 ///////////////////////////////////////////////////////
 
 func (fn *FullNode) bootstrap(port int) {
-	strAddr := fmt.Sprintf("0.0.0.0:%d", port)
+	recv := make(chan structs.Message)
 
-	addr, err := net.ResolveUDPAddr("udp4", strAddr)
-	if err != nil {
-		fmt.Println("line:494")
-		log.Fatal(err)
-	}
-
-	conn, err := net.ListenUDP("udp4", addr)
-	if err != nil {
-		fmt.Println("line:500")
-		log.Fatal(err)
-	}
-	defer conn.Close()
-
-	buffer := make([]byte, 1024)
+	broadcast := ntw.Broadcast{Port: port}
+	go broadcast.Recv(recv)
 
 	for {
-		_, rAddr, err := conn.ReadFrom(buffer)
-		if err != nil {
-			fmt.Println("line:510")
-			log.Fatal(err)
-		}
-		// Check if node are in the same port
-		portInt := binary.LittleEndian.Uint32(buffer[20:24])
-		if int(portInt) != fn.dht.Port {
-			fmt.Println("UDP Message with != Ports")
+		m := <-recv
+		if m.IP.Equal(net.ParseIP(fn.dht.IP)) {
 			continue
 		}
-		host, _, _ := net.SplitHostPort(rAddr.String())
-		rAddr = &net.TCPAddr{IP: net.ParseIP(host), Port: port + 1}
 
-		go func(rAddr net.Addr, buffer []byte) {
-			connChan := make(chan net.Conn)
+		addr := net.TCPAddr{IP: m.IP, Port: port + 1}
 
-			go func() {
-				respConn, err := net.Dial("tcp", rAddr.String())
-				for err != nil {
-					respConn, err = net.Dial("tcp", rAddr.String())
-				}
-				connChan <- respConn
-			}()
+		kBucket := fn.dht.FindNode(m.Buffer)
 
-			kBucket, err := fn.LookUp(buffer[:20])
-			if err != nil {
-				fmt.Println("line:529")
-				log.Fatal(err)
-			}
-			kBucket = append(kBucket, fn.dht.Node)
+		*kBucket = append(*kBucket, fn.dht.Node)
 
-			//Convert port from byte to int
-			portInt := binary.LittleEndian.Uint32(buffer[20:24])
-			intVal := int(portInt)
-			if intVal != fn.dht.Port {
-				return
-			}
+		resp, _ := utils.SerializeMessage(kBucket)
 
-			host, _, _ := net.SplitHostPort(rAddr.String())
-			id, _ := utils.NewID(host, intVal)
-			fn.dht.RoutingTable.AddNode(structs.Node{ID: id, IP: host, Port: intVal})
-
-			bytesKBucket, err := utils.SerializeMessage(&kBucket)
-			if err != nil {
-				fmt.Println("line:544")
-				log.Fatal(err)
-			}
-
-			respConn := <-connChan
-			respConn.Write(*bytesKBucket)
-		}(rAddr, buffer)
+		go ntw.Send(&addr, resp)
 	}
 }
 
-func (fn *FullNode) joinNetwork(boostrapPort int) {
-	broadcastAddr := net.UDPAddr{
-		IP:   net.IPv4(255, 255, 255, 255),
-		Port: boostrapPort,
-	}
+func (fn *FullNode) joinNetwork(port int) {
+	b := ntw.Broadcast{Port: port}
+	go b.Send(&fn.dht.ID)
 
-	fmt.Println("In Dial UDP")
-	conn, err := net.DialUDP("udp4", nil, &broadcastAddr)
-	if err != nil {
-		fmt.Println("line:558")
-		log.Fatal(err)
-	}
-
-	host, _, err := net.SplitHostPort(conn.LocalAddr().String())
-	if err != nil {
-		fmt.Println("line:564")
-		log.Fatal(err)
-	}
-
-	dataToSend := fn.dht.ID
-	bs := make([]byte, 4)
-	binary.LittleEndian.PutUint32(bs, uint32(fn.dht.Port))
-	dataToSend = append(dataToSend, bs...)
-	_, err = conn.Write(dataToSend)
-	if err != nil {
-		log.Fatal(err)
-	}
-	conn.Close()
-
-	address := fmt.Sprintf("%s:%d", host, boostrapPort+1)
-	tcpAddr, err := net.ResolveTCPAddr("tcp", address)
-	if err != nil {
-		fmt.Println("line:579")
-		log.Fatal(err)
-	}
-
-	fmt.Println("In Listen TCP", tcpAddr)
-	lis, err := net.ListenTCP("tcp", tcpAddr)
-	if err != nil {
-		fmt.Println("line:586")
-		log.Fatal(err)
-	}
-
-	// ctx, cancel := context.WithTimeout(context.TODO(), 100*time.Millisecond)
-	// defer cancel()
-
-RECONNECT:
-	connChannel := make(chan net.Conn)
-
-	go func() {
-		tcpConn, _ := lis.AcceptTCP()
-		connChannel <- tcpConn
-	}()
+	recv := make(chan *net.TCPConn, 1)
+	go ntw.Recv(recv, port+1)
 
 	select {
-	case <-time.After(5 * time.Second):
-		lis.Close()
-		break
-		// go func() {
-		// 	time.After(5 * time.Minute)
-		// 	go fn.joinNetwork(boostrapPort)
-		// }()
-	case tcpConn := <-connChannel:
-		kBucket, err := utils.DeserializeMessage(tcpConn)
+	case conn := <-recv:
+		kBucket, err := utils.DeserializeMessage(conn)
 		if err != nil {
-			fmt.Println("line:604")
+			// fmt.Println("ERROR: Deserialize Message")
 			log.Fatal(err)
 		}
-		fmt.Println("line:610 In Deserialize Messages")
 
-		for i := 0; i < len(*kBucket); i++ {
-			node := (*kBucket)[i]
+		if kBucket == nil {
+			// fmt.Println("kBucket Received NIL")
+			break
+		}
 
-			if node.Port != fn.dht.Port {
-				goto RECONNECT
-			}
-
-			// fmt.Println("Before NewClient")
+		for _, node := range *kBucket {
 			client := NewClientNode(node.IP, node.Port)
-			// fmt.Println("After NewClient")
-			if client == nil {
-				continue
-			}
-
-			// fmt.Println("Before Ping")
-			recvNode, err := client.Ping(fn.dht.Node)
-			// fmt.Println("After Ping")
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			if recvNode.Equal(node) {
+			resp, _ := client.Ping(fn.dht.Node)
+			if resp.Equal(node) {
 				fn.dht.RoutingTable.AddNode(node)
-			} else {
-				fmt.Println("Recv Node", *recvNode)
-				fmt.Println("Node", node)
-				fmt.Println("Me", fn.dht.Node)
-				log.Fatal(errors.New("bad ping"))
 			}
 		}
-		fmt.Println("Finish join network")
+		return
+
+	case <-time.After(5 * time.Second):
+		break
 	}
 }
 

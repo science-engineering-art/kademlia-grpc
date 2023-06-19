@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/gob"
-	"io"
+	"net"
 
 	"github.com/science-engineering-art/kademlia-grpc/structs"
 )
@@ -36,7 +36,9 @@ func SerializeMessage(q *[]structs.Node) (*[]byte, error) {
 	return &result, nil
 }
 
-func DeserializeMessage(conn io.Reader) (*[]structs.Node, error) {
+func DeserializeMessage(conn *net.TCPConn) (*[]structs.Node, error) {
+	defer conn.Close()
+
 	amountNodes := make([]byte, 8)
 	_, err := conn.Read(amountNodes)
 	if err != nil {
